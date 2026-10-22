@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getDataSource } from "@/lib/db/data-source";
 import { Tenant } from "@/lib/db/entities/Tenant";
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   try {
     const ds = await getDataSource();
     const tenantRepository = ds.getRepository(Tenant);
@@ -35,4 +35,3 @@ export async function GET() {
     );
   }
 }
-
