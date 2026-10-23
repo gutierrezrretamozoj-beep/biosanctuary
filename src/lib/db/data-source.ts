@@ -56,6 +56,13 @@ export async function getDataSource(): Promise<DataSource> {
 }
 
 /**
+ * Alias de conveniencia para obtener la conexión a base de datos inicializada.
+ */
+export async function getDatabaseConnection(): Promise<DataSource> {
+  return getDataSource();
+}
+
+/**
  * Inicializa un QueryRunner dedicado y conmuta el search_path al schema del tenant solicitado.
  * Cumple con el aislamiento Schema-per-Tenant de BioSanctuary OS.
  * 
@@ -74,4 +81,3 @@ export async function getTenantQueryRunner(
 
   return queryRunner;
 }
-
