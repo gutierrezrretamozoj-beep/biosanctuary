@@ -13,10 +13,9 @@ function getJwtSecret(): Uint8Array {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Rutas públicas que no requieren validación estricta de sesión
+  // Rutas públicas que no requieren validación previa en middleware
   if (
-    pathname.startsWith("/api/auth/login") ||
-    pathname.startsWith("/api/auth/logout") ||
+    pathname.startsWith("/api/auth/") ||
     pathname === "/api/health" ||
     pathname === "/" ||
     pathname.startsWith("/_next") ||
