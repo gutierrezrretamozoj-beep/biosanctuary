@@ -3,6 +3,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getDatabaseConnection } from "@/lib/db/data-source";
 import { signUserToken, setSessionCookie, UserTokenPayload } from "@/lib/auth/jwt";
+import { checkLoginRateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 const loginSchema = z.object({
   email: z.string().email("El formato del correo electrónico es inválido"),
@@ -24,6 +25,20 @@ interface UserQueryResult {
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Rate Limiting por IP (Máximo 5 peticiones cada 15 minutos / 900s)
+    const clientIp =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "127.0.0.1";
+
+    const rl = await checkLoginRateLimit(clientIp);
+    if (!rl.success) {
+      return rateLimitResponse(
+        rl.retryAfterSeconds,
+        "Límite de intentos de autenticación excedido para esta IP"
+      );
+    }
+
     let body;
     try {
       body = await request.json();

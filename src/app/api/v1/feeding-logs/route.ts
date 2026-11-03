@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getTenantQueryRunner } from "@/lib/db/data-source";
+import { checkTenantDomainRateLimit, rateLimitResponse } from "@/lib/ratelimit";
+import {
+  validateIdempotencyHeader,
+  getStoredIdempotency,
+  saveIdempotentResponse,
+} from "@/lib/idempotency";
 
 const createFeedingLogSchema = z.object({
   specimen_id: z.string().uuid("El identificador del espécimen debe ser un UUID válido"),
@@ -77,15 +83,17 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/v1/feeding-logs
  * Registra una ingesta o tratamiento médico para un espécimen.
+ * Aplica Rate Limiting por tenant (30 req/min) y patrón de idempotencia con Idempotency-Key.
  * Asigna keeper_id automáticamente desde el usuario autenticado (x-user-id).
  */
 export async function POST(request: NextRequest) {
   const schemaName = request.headers.get("x-tenant-schema");
+  const tenantId = request.headers.get("x-tenant-id");
   const userId = request.headers.get("x-user-id");
 
-  if (!schemaName) {
+  if (!schemaName || !tenantId) {
     return NextResponse.json(
-      { error: "Encabezado x-tenant-schema ausente o no resuelto por middleware" },
+      { error: "Encabezados de contexto de tenant ausentes o no resueltos por middleware" },
       { status: 401 }
     );
   }
@@ -97,32 +105,57 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Cuerpo de solicitud inválido o JSON malformado" },
-      { status: 400 }
-    );
+  // 1. Rate Limiting por Tenant (30 req/min)
+  const rl = await checkTenantDomainRateLimit(tenantId);
+  if (!rl.success) {
+    return rateLimitResponse(rl.retryAfterSeconds);
   }
 
-  const validationResult = createFeedingLogSchema.safeParse(body);
-  if (!validationResult.success) {
-    return NextResponse.json(
-      {
-        error: validationResult.error.issues[0]?.message || "Datos de entrada inválidos",
-        details: validationResult.error.flatten().fieldErrors,
-      },
-      { status: 400 }
-    );
+  // 2. Validación de Cabecera Obligatoria Idempotency-Key
+  const idempotencyHeader = request.headers.get("idempotency-key");
+  const headerCheck = validateIdempotencyHeader(idempotencyHeader);
+  if (!headerCheck.valid) {
+    return headerCheck.response;
   }
-
-  const { specimen_id, portion_grams, diet_type, diet_notes } = validationResult.data;
+  const idempotencyKey = headerCheck.key;
 
   const queryRunner = await getTenantQueryRunner(schemaName);
   try {
-    // 1. Validar que el espécimen exista en el schema activo
+    // 3. Verificación de Idempotencia previa (Redis / Base de datos)
+    const cachedResponse = await getStoredIdempotency(queryRunner, tenantId, idempotencyKey);
+    if (cachedResponse) {
+      return NextResponse.json(cachedResponse.response_body, {
+        status: cachedResponse.response_code,
+        headers: {
+          "X-Cache-Lookup": "HIT-IDEMPOTENT",
+        },
+      });
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Cuerpo de solicitud inválido o JSON malformado" },
+        { status: 400 }
+      );
+    }
+
+    const validationResult = createFeedingLogSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: validationResult.error.issues[0]?.message || "Datos de entrada inválidos",
+          details: validationResult.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { specimen_id, portion_grams, diet_type, diet_notes } = validationResult.data;
+
+    // 4. Validar que el espécimen exista en el schema activo
     const specimenResult = await queryRunner.query(
       `SELECT id, common_name, scientific_name FROM specimens WHERE id = $1 LIMIT 1;`,
       [specimen_id]
@@ -137,7 +170,7 @@ export async function POST(request: NextRequest) {
 
     const specimen = specimenResult[0];
 
-    // 2. Insertar en feeding_logs
+    // 5. Insertar en feeding_logs
     const insertResult = await queryRunner.query(
       `INSERT INTO feeding_logs (specimen_id, keeper_id, diet_type, portion_grams, diet_notes)
        VALUES ($1, $2, $3, $4, $5)
@@ -146,17 +179,25 @@ export async function POST(request: NextRequest) {
     );
 
     const newLog = insertResult[0];
-
-    return NextResponse.json(
-      {
-        message: "Registro de alimentación registrado exitosamente",
-        data: {
-          ...newLog,
-          specimen_common_name: specimen.common_name,
-        },
+    const responsePayload = {
+      message: "Registro de alimentación registrado exitosamente",
+      data: {
+        ...newLog,
+        specimen_common_name: specimen.common_name,
       },
-      { status: 201 }
+    };
+
+    // 6. Persistencia de idempotencia con TTL de 24 horas en BD y Redis
+    await saveIdempotentResponse(
+      queryRunner,
+      tenantId,
+      idempotencyKey,
+      "/api/v1/feeding-logs",
+      201,
+      responsePayload
     );
+
+    return NextResponse.json(responsePayload, { status: 201 });
   } catch (error: unknown) {
     console.error("[POST /api/v1/feeding-logs Error]:", error);
     const message = error instanceof Error ? error.message : "Error al registrar la alimentación";
@@ -165,4 +206,3 @@ export async function POST(request: NextRequest) {
     await queryRunner.release();
   }
 }
-

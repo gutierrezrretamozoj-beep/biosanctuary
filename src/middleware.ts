@@ -29,13 +29,16 @@ export async function middleware(request: NextRequest) {
     request.cookies.get(COOKIE_NAME)?.value ||
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
 
-  // Si no hay token en rutas protegidas de API (/api/v1/*)
+  // Si no hay token en rutas protegidas
   if (!token) {
     if (pathname.startsWith("/api/v1")) {
       return NextResponse.json(
         { error: "No autenticado. Token o sesión ausente." },
         { status: 401 }
       );
+    }
+    if (pathname.startsWith("/dashboard")) {
+      return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }
@@ -51,6 +54,9 @@ export async function middleware(request: NextRequest) {
           { error: "Sesión inválida: información de tenant ausente." },
           { status: 401 }
         );
+      }
+      if (pathname.startsWith("/dashboard")) {
+        return NextResponse.redirect(new URL("/", request.url));
       }
       return NextResponse.next();
     }
@@ -75,6 +81,9 @@ export async function middleware(request: NextRequest) {
         { error: "Sesión expirada o token inválido." },
         { status: 401 }
       );
+    }
+    if (pathname.startsWith("/dashboard")) {
+      return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }

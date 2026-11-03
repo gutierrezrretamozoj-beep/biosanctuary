@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getTenantQueryRunner } from "@/lib/db/data-source";
+import { checkTenantDomainRateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 const createEnclosureSchema = z.object({
   name: z.string().min(3, "El nombre del recinto debe tener al menos 3 caracteres"),
@@ -65,9 +66,11 @@ export async function GET(request: NextRequest) {
  * POST /api/v1/enclosures
  * Crea un nuevo recinto en el hábitat del tenant.
  * RBAC: Solo DIRECTOR_ADMIN o FACILITY_LEAD.
+ * Rate Limiting: 30 req/min por tenant.
  */
 export async function POST(request: NextRequest) {
   const schemaName = request.headers.get("x-tenant-schema");
+  const tenantId = request.headers.get("x-tenant-id");
   const userRole = request.headers.get("x-user-role");
 
   if (!schemaName) {
@@ -75,6 +78,14 @@ export async function POST(request: NextRequest) {
       { error: "Encabezado x-tenant-schema ausente o no resuelto por middleware" },
       { status: 401 }
     );
+  }
+
+  // Rate Limiting por Tenant (30 req / min)
+  if (tenantId) {
+    const rl = await checkTenantDomainRateLimit(tenantId);
+    if (!rl.success) {
+      return rateLimitResponse(rl.retryAfterSeconds);
+    }
   }
 
   // Verificación RBAC según directiva y bio-domain-rules
@@ -138,4 +149,3 @@ export async function POST(request: NextRequest) {
     await queryRunner.release();
   }
 }
-

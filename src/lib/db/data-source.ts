@@ -3,6 +3,9 @@ import { DataSource, QueryRunner } from "typeorm";
 import { Tenant } from "./entities/Tenant";
 import { User } from "./entities/User";
 import { Enclosure, Specimen, FeedingLog } from "./entities/TenantDomain";
+import { IdempotencyKey } from "./entities/IdempotencyKey";
+import { TransferRequest } from "./entities/TransferRequest";
+import { NetworkMessage } from "./entities/NetworkMessage";
 
 const directUrl = (
   process.env.DIRECT_URL ||
@@ -25,7 +28,16 @@ export const AppDataSource =
     ssl: { rejectUnauthorized: false },
     synchronize: false,
     logging: process.env.NODE_ENV === "development" ? ["error", "warn"] : false,
-    entities: [Tenant, User, Enclosure, Specimen, FeedingLog],
+    entities: [
+      Tenant,
+      User,
+      Enclosure,
+      Specimen,
+      FeedingLog,
+      IdempotencyKey,
+      TransferRequest,
+      NetworkMessage,
+    ],
   });
 
 if (process.env.NODE_ENV !== "production") {

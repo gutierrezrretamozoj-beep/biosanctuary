@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getTenantQueryRunner } from "@/lib/db/data-source";
+import { checkTenantDomainRateLimit, rateLimitResponse } from "@/lib/ratelimit";
+import {
+  validateIdempotencyHeader,
+  getStoredIdempotency,
+  saveIdempotentResponse,
+} from "@/lib/idempotency";
 
 const createSpecimenSchema = z.object({
   enclosure_id: z.string().uuid("El identificador del recinto debe ser un UUID válido"),
@@ -67,55 +73,82 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/v1/specimens
- * Registra un nuevo espécimen verificando reglas biológicas y de capacidad del recinto.
+ * Registra un nuevo espécimen verificando reglas biológicas, de capacidad del recinto,
+ * limitación de tasa (30 req/min) e idempotencia con header Idempotency-Key.
  */
 export async function POST(request: NextRequest) {
   const schemaName = request.headers.get("x-tenant-schema");
+  const tenantId = request.headers.get("x-tenant-id");
 
-  if (!schemaName) {
+  if (!schemaName || !tenantId) {
     return NextResponse.json(
-      { error: "Encabezado x-tenant-schema ausente o no resuelto por middleware" },
+      { error: "Encabezados de contexto de tenant ausentes o no resueltos por middleware" },
       { status: 401 }
     );
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Cuerpo de solicitud inválido o JSON malformado" },
-      { status: 400 }
-    );
+  // 1. Rate Limiting por Tenant (30 req/min)
+  const rl = await checkTenantDomainRateLimit(tenantId);
+  if (!rl.success) {
+    return rateLimitResponse(rl.retryAfterSeconds);
   }
 
-  const validationResult = createSpecimenSchema.safeParse(body);
-  if (!validationResult.success) {
-    return NextResponse.json(
-      {
-        error: validationResult.error.issues[0]?.message || "Datos de entrada inválidos",
-        details: validationResult.error.flatten().fieldErrors,
-      },
-      { status: 400 }
-    );
+  // 2. Validación de Cabecera Obligatoria Idempotency-Key
+  const idempotencyHeader = request.headers.get("idempotency-key");
+  const headerCheck = validateIdempotencyHeader(idempotencyHeader);
+  if (!headerCheck.valid) {
+    return headerCheck.response;
   }
-
-  const {
-    enclosure_id,
-    common_name,
-    scientific_name,
-    microchip_id,
-    rescue_status,
-    weight_kg,
-    arrival_date,
-  } = validationResult.data;
-
-  const resolvedArrivalDate = arrival_date || new Date().toISOString().split("T")[0];
-  const cleanMicrochip = microchip_id ? microchip_id.trim() : null;
+  const idempotencyKey = headerCheck.key;
 
   const queryRunner = await getTenantQueryRunner(schemaName);
   try {
-    // 1. Regla crítica: Consultar si el recinto existe
+    // 3. Verificación de Idempotencia previa (Redis / Base de datos)
+    const cachedResponse = await getStoredIdempotency(queryRunner, tenantId, idempotencyKey);
+    if (cachedResponse) {
+      return NextResponse.json(cachedResponse.response_body, {
+        status: cachedResponse.response_code,
+        headers: {
+          "X-Cache-Lookup": "HIT-IDEMPOTENT",
+        },
+      });
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Cuerpo de solicitud inválido o JSON malformado" },
+        { status: 400 }
+      );
+    }
+
+    const validationResult = createSpecimenSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: validationResult.error.issues[0]?.message || "Datos de entrada inválidos",
+          details: validationResult.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const {
+      enclosure_id,
+      common_name,
+      scientific_name,
+      microchip_id,
+      rescue_status,
+      weight_kg,
+      arrival_date,
+    } = validationResult.data;
+
+    const resolvedArrivalDate = arrival_date || new Date().toISOString().split("T")[0];
+    const cleanMicrochip = microchip_id ? microchip_id.trim() : null;
+
+    // 4. Regla crítica: Consultar si el recinto existe
     const enclosureResult = await queryRunner.query(
       `SELECT id, name, operational_status, capacity 
        FROM enclosures 
@@ -132,7 +165,7 @@ export async function POST(request: NextRequest) {
 
     const enclosure = enclosureResult[0];
 
-    // 2. Regla crítica: Recinto bajo reparación o cuarentena bloqueada
+    // 5. Regla crítica: Recinto bajo reparación o cuarentena bloqueada
     if (
       enclosure.operational_status === "UNDER_REPAIR" ||
       enclosure.operational_status === "QUARANTINE_LOCKED"
@@ -145,7 +178,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Regla de capacidad: Verificar ocupación actual del recinto
+    // 6. Regla de capacidad: Verificar ocupación actual del recinto
     const countResult = await queryRunner.query(
       `SELECT COUNT(*)::int AS current_count FROM specimens WHERE enclosure_id = $1;`,
       [enclosure_id]
@@ -161,7 +194,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Regla de microchip único (opcional pero único si se ingresa)
+    // 7. Regla de microchip único (opcional pero único si se ingresa)
     if (cleanMicrochip) {
       const chipResult = await queryRunner.query(
         `SELECT id FROM specimens WHERE microchip_id = $1 LIMIT 1;`,
@@ -176,7 +209,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. Inserción del espécimen
+    // 8. Inserción del espécimen
     const insertResult = await queryRunner.query(
       `INSERT INTO specimens (
          enclosure_id, common_name, scientific_name, microchip_id, rescue_status, weight_kg, arrival_date
@@ -195,17 +228,25 @@ export async function POST(request: NextRequest) {
     );
 
     const newSpecimen = insertResult[0];
-
-    return NextResponse.json(
-      {
-        message: "Espécimen registrado exitosamente",
-        data: {
-          ...newSpecimen,
-          enclosure_name: enclosure.name,
-        },
+    const responsePayload = {
+      message: "Espécimen registrado exitosamente",
+      data: {
+        ...newSpecimen,
+        enclosure_name: enclosure.name,
       },
-      { status: 201 }
+    };
+
+    // 9. Persistencia de idempotencia con TTL de 24 horas en BD y Redis
+    await saveIdempotentResponse(
+      queryRunner,
+      tenantId,
+      idempotencyKey,
+      "/api/v1/specimens",
+      201,
+      responsePayload
     );
+
+    return NextResponse.json(responsePayload, { status: 201 });
   } catch (error: unknown) {
     console.error("[POST /api/v1/specimens Error]:", error);
     const message = error instanceof Error ? error.message : "Error al registrar el espécimen";
@@ -214,4 +255,3 @@ export async function POST(request: NextRequest) {
     await queryRunner.release();
   }
 }
-
