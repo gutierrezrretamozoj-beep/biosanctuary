@@ -198,8 +198,12 @@ export function BiomeHabitat3D({ bioma }: { bioma: BiomaType }) {
   const { isDay } = useNatureTheme();
 
   return (
-    <div className="w-full h-44 rounded-xl overflow-hidden bg-gradient-to-b from-transparent to-black/10 relative">
+    <div
+      className="w-full h-44 rounded-xl overflow-hidden bg-gradient-to-b from-transparent to-black/10 relative"
+      aria-hidden="true"
+    >
       <Canvas
+        dpr={[1, 2]}
         camera={{ position: [0, 2.2, 4.2], fov: 45 }}
         gl={{ antialias: true, alpha: true }}
       >

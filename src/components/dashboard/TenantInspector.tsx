@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Database, ShieldCheck, UserCheck, AlertCircle } from "lucide-react";
+import { Database, ShieldCheck, AlertCircle } from "lucide-react";
+import { UserRole } from "@/types";
+import { ROLE_LABELS } from "@/lib/labels";
 
 interface TenantSessionInfo {
   userId: string;
   tenantId: string;
   tenantSlug: string;
   schemaName: string;
-  role: string;
+  role: UserRole;
   email: string;
 }
 
@@ -37,7 +39,7 @@ export function TenantInspector() {
     return (
       <div className="h-9 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 animate-pulse">
         <Database className="w-3.5 h-3.5" />
-        <span>Resolviendo tenant...</span>
+        <span>Resolviendo santuario…</span>
       </div>
     );
   }
@@ -50,6 +52,8 @@ export function TenantInspector() {
       </div>
     );
   }
+
+  const roleLabel = ROLE_LABELS[session.role] || session.role;
 
   return (
     <div className="flex items-center gap-2 text-xs">
@@ -65,10 +69,10 @@ export function TenantInspector() {
         </div>
       </div>
 
-      {/* Insignia de Rol RBAC */}
+      {/* Insignia de Rol RBAC con etiqueta en español */}
       <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-teal-500/15 border border-teal-500/30 text-teal-800 dark:text-teal-200 font-semibold text-[11px]">
         <ShieldCheck className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-        <span>{session.role}</span>
+        <span>{roleLabel}</span>
       </div>
     </div>
   );

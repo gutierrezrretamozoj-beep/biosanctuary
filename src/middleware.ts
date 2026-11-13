@@ -4,9 +4,10 @@ import { jwtVerify } from "jose";
 const COOKIE_NAME = "biosanctuary_session";
 
 function getJwtSecret(): Uint8Array {
-  const secret =
-    process.env.JWT_SECRET ||
-    "clave_secreta_super_segura_biosanctuary_os_2026_min_32_chars";
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is missing.");
+  }
   return new TextEncoder().encode(secret);
 }
 

@@ -55,6 +55,7 @@ export function LivingEcosystemDashboard({
   const [sliderValue, setSliderValue] = useState(45);
   const [isBiomeModalOpen, setIsBiomeModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const [isAccessibleMode, setIsAccessibleMode] = useState(false);
 
   // Modales interactivos del Header y Dock
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -210,6 +211,20 @@ export function LivingEcosystemDashboard({
 
         {/* Acciones Derecha */}
         <div className="flex items-center gap-3 sm:gap-4 text-xs">
+          {/* Botón de Modo Accesible Alternativo (WCAG 2.2) */}
+          <button
+            onClick={() => setIsAccessibleMode(!isAccessibleMode)}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center gap-1.5 ${
+              isAccessibleMode
+                ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
+                : "bg-emerald-900/60 text-emerald-200 hover:bg-emerald-800/60"
+            }`}
+            title="Alternar entre visualización 3D y resumen accesible en texto"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>{isAccessibleMode ? "Volver a 3D" : "Modo Accesible"}</span>
+          </button>
+
           {/* Indicador de Modo Solar / Lunar */}
           <div className="hidden sm:flex items-center gap-1.5 font-medium text-emerald-200">
             <span>Modo:</span>
@@ -421,8 +436,92 @@ export function LivingEcosystemDashboard({
           </div>
         </aside>
 
-        {/* ESPACIO PRINCIPAL CON TARJETAS FLOTANTES */}
+        {/* ESPACIO PRINCIPAL CON TARJETAS FLOTANTES O MODO ACCESIBLE */}
         <main className="flex-1 p-4 sm:p-6 relative flex flex-col justify-between overflow-y-auto">
+          {isAccessibleMode ? (
+            /* VISTA ACCESIBLE ALTERNATIVA EN TEXTO (WCAG 2.2 NIVEL AA) */
+            <section
+              aria-label="Panel de Control Accesible en Texto"
+              className="z-30 w-full max-w-4xl mx-auto my-auto p-6 sm:p-8 rounded-3xl backdrop-blur-2xl bg-emerald-950/95 border border-emerald-400/30 text-white shadow-2xl space-y-6"
+            >
+              <div className="flex items-center justify-between border-b border-emerald-800/80 pb-4">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-black text-white">
+                    Resumen Operativo del Santuario (Modo Accesible)
+                  </h1>
+                  <p className="text-xs text-emerald-300 mt-1">
+                    Vista de alto contraste y estructura semántica para lectores de pantalla.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsAccessibleMode(false)}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 text-xs font-bold hover:bg-emerald-500/30"
+                >
+                  Cerrar Vista Accesible
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-emerald-900/40 border border-emerald-500/30">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-1">
+                    Recintos y Hábitats
+                  </h2>
+                  <p className="text-2xl font-extrabold text-white">{enclosuresCount}</p>
+                  <p className="text-xs text-emerald-200 mt-1">Estado general: Óptimo</p>
+                  <Link
+                    href="/dashboard/enclosures"
+                    className="inline-block mt-3 text-xs font-bold text-emerald-400 hover:underline"
+                  >
+                    Ir a Recintos &rarr;
+                  </Link>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-emerald-900/40 border border-emerald-500/30">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-1">
+                    Fauna Silvestre Rescatada
+                  </h2>
+                  <p className="text-2xl font-extrabold text-white">{specimensCount}</p>
+                  <p className="text-xs text-emerald-200 mt-1">Protocolo activo: Cuarentena e Idempotencia</p>
+                  <Link
+                    href="/dashboard/specimens"
+                    className="inline-block mt-3 text-xs font-bold text-emerald-400 hover:underline"
+                  >
+                    Ir a Especímenes &rarr;
+                  </Link>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-emerald-900/40 border border-emerald-500/30">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-1">
+                    Red Inter-Santuarios
+                  </h2>
+                  <p className="text-2xl font-extrabold text-white">
+                    {partnerSanctuaries.length > 0 ? partnerSanctuaries.length : "Activa"}
+                  </p>
+                  <p className="text-xs text-emerald-200 mt-1">Derivación colaborativa de fauna</p>
+                  <Link
+                    href="/dashboard/network"
+                    className="inline-block mt-3 text-xs font-bold text-emerald-400 hover:underline"
+                  >
+                    Ir a Red &rarr;
+                  </Link>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-emerald-900/20 border border-emerald-500/20 text-xs text-emerald-200 space-y-1">
+                <p>
+                  <strong>Santuario activo:</strong> {tenantSlug} (Schema PostgreSQL:{" "}
+                  <code className="font-mono text-emerald-300">{tenantSchema}</code>)
+                </p>
+                <p>
+                  <strong>Usuario conectado:</strong> {userName} ({userEmail}) — Rol: {userRole}
+                </p>
+                <p>
+                  <strong>Ciclo atmosférico:</strong> {isDay ? "Día (Sol activo)" : "Noche (Luna activa)"}
+                </p>
+              </div>
+            </section>
+          ) : (
+            <>
           {/* TARJETA SUPERIOR IZQUIERDA: RECINTOS ACTIVOS */}
           <div className="self-start z-20">
             <Link
@@ -531,6 +630,8 @@ export function LivingEcosystemDashboard({
               </div>
             </div>
           </div>
+          </>
+          )}
         </main>
 
         {/* 3. PANEL LATERAL DERECHO (PILA DE TARJETAS GLASSMORPHISM) */}
@@ -853,7 +954,7 @@ export function LivingEcosystemDashboard({
                 </div>
                 <div>Tenant Slug: <span className="text-white font-bold">{tenantSlug}</span></div>
                 <div>Schema Activo: <span className="text-emerald-300 font-bold">{tenantSchema}</span></div>
-                <div>Comando DDL: <span className="text-amber-300">SET search_path TO "{tenantSchema}", public;</span></div>
+                <div>Comando DDL: <span className="text-amber-300">SET search_path TO &quot;{tenantSchema}&quot;, public;</span></div>
               </div>
 
               <div className="p-3 rounded-xl bg-black/40 border border-emerald-800/60 space-y-1.5 font-sans">

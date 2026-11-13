@@ -756,10 +756,14 @@ function Fireflies() {
     const pos = new Float32Array(count * 3);
     const ph = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 24;
-      pos[i * 3 + 1] = Math.random() * 6.0 - 1.2;
-      pos[i * 3 + 2] = -Math.random() * 18 - 1;
-      ph[i] = Math.random() * Math.PI * 2;
+      const s1 = ((i * 9301 + 49297) % 233280) / 233280;
+      const s2 = ((i * 7919 + 65537) % 233280) / 233280;
+      const s3 = ((i * 3571 + 12345) % 233280) / 233280;
+      const s4 = ((i * 4909 + 87654) % 233280) / 233280;
+      pos[i * 3] = (s1 - 0.5) * 24;
+      pos[i * 3 + 1] = s2 * 6.0 - 1.2;
+      pos[i * 3 + 2] = -s3 * 18 - 1;
+      ph[i] = s4 * Math.PI * 2;
     }
     return [pos, ph];
   }, []);
@@ -810,11 +814,40 @@ function CameraController() {
 
 export function LivingSanctuaryCanvas() {
   const { isDay } = useNatureTheme();
+  const [isVisible, setIsVisible] = React.useState(true);
+  const [reducedMotion, setReducedMotion] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleVisibility = () => {
+      setIsVisible(!document.hidden);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    if (typeof window !== "undefined" && window.matchMedia) {
+      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setReducedMotion(mediaQuery.matches);
+      const handleMotion = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+      mediaQuery.addEventListener("change", handleMotion);
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibility);
+        mediaQuery.removeEventListener("change", handleMotion);
+      };
+    }
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div
+      className="fixed inset-0 pointer-events-none z-0 overflow-hidden"
+      aria-hidden="true"
+    >
       <Canvas
-        shadows
+        shadows={!reducedMotion}
+        dpr={[1, 2]}
+        frameloop={isVisible ? (reducedMotion ? "demand" : "always") : "never"}
         camera={{ position: [0, 2.2, 5.8], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       >

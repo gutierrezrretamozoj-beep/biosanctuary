@@ -13,13 +13,15 @@ import {
   Lock,
   Globe,
   CheckCircle2,
-  AlertTriangle,
   ArrowRight,
-  Loader2,
   Database,
+  Share2,
 } from "lucide-react";
 import { DynamicLivingSanctuary } from "@/components/3d/DynamicLivingSanctuary";
 import { DayNightSwitch } from "@/components/ui/DayNightSwitch";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Banner } from "@/components/ui/Banner";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -86,7 +88,7 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMessage(data.error || "Error al aprovisionar el santuario.");
+        setErrorMessage(data.error || "No se pudo aprovisionar el santuario.");
         setLoading(false);
         return;
       }
@@ -103,7 +105,7 @@ export default function RegisterPage() {
         router.refresh();
       }, 2200);
     } catch {
-      setErrorMessage("Error de conexión al aprovisionar. Verifique los datos e intente nuevamente.");
+      setErrorMessage("Error de conexión al aprovisionar. Revisa los datos e inténtalo de nuevo.");
       setLoading(false);
     }
   };
@@ -144,7 +146,7 @@ export default function RegisterPage() {
               </div>
               <div>
                 <h2 className="text-2xl font-black text-emerald-900 dark:text-emerald-100 mb-1">
-                  ¡Santuario Aprovisionado!
+                  ¡Santuario Aprovisionado con Éxito!
                 </h2>
                 <p className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
                   {provisionedData.name} está listo para operar
@@ -169,13 +171,12 @@ export default function RegisterPage() {
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-emerald-400/80 pt-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Tablas de dominio creadas con SET search_path</span>
+                  <span>Tablas de dominio creadas con SET search_path dinámico</span>
                 </div>
               </div>
 
               <div className="flex items-center justify-center gap-2 text-xs text-emerald-700 dark:text-emerald-300 font-medium pt-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Iniciando sesión segura y redirigiendo al Dashboard...</span>
+                <span>Iniciando sesión segura y redirigiendo al panel de control…</span>
               </div>
             </motion.div>
           ) : (
@@ -190,156 +191,123 @@ export default function RegisterPage() {
               </div>
 
               {errorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mb-5 p-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-900 dark:text-red-200 text-xs flex items-center gap-2.5 backdrop-blur-md"
-                >
-                  <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
-                  <span>{errorMessage}</span>
-                </motion.div>
+                <div className="mb-5">
+                  <Banner
+                    type="error"
+                    message={errorMessage}
+                    onDismiss={() => setErrorMessage(null)}
+                  />
+                </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Nombre del Santuario */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-emerald-900/80 dark:text-emerald-200/80 mb-1">
-                    Nombre del Santuario / Reserva
-                  </label>
-                  <div className="relative">
-                    <Building className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      required
-                      value={sanctuaryName}
-                      onChange={handleNameChange}
-                      placeholder="Santuario Selva Esmeralda"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/60 dark:bg-emerald-950/60 border border-emerald-600/20 dark:border-emerald-400/20 text-emerald-950 dark:text-emerald-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-emerald-900/40 dark:placeholder:text-emerald-300/40"
-                    />
-                  </div>
-                </div>
+                <Input
+                  label="Nombre del Santuario / Reserva"
+                  id="reg-sanctuary-name"
+                  type="text"
+                  required
+                  value={sanctuaryName}
+                  onChange={handleNameChange}
+                  placeholder="Santuario Selva Esmeralda"
+                  icon={<Building className="w-4 h-4" />}
+                />
 
-                {/* Slug del Santuario */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-emerald-900/80 dark:text-emerald-200/80">
-                      Identificador Único (Slug)
-                    </label>
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 dark:text-emerald-100">
+                      Identificador Único (Slug) <span className="text-red-500">*</span>
+                    </span>
                     <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono">
                       schema: tenant_{slug.replace(/-/g, "_") || "..."}
                     </span>
                   </div>
-                  <div className="relative">
-                    <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      required
-                      value={slug}
-                      onChange={handleSlugChange}
-                      placeholder="selva-esmeralda"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/60 dark:bg-emerald-950/60 border border-emerald-600/20 dark:border-emerald-400/20 text-emerald-950 dark:text-emerald-100 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-                    />
-                  </div>
+                  <Input
+                    id="reg-slug"
+                    type="text"
+                    required
+                    value={slug}
+                    onChange={handleSlugChange}
+                    placeholder="selva-esmeralda"
+                    icon={<Globe className="w-4 h-4" />}
+                    className="font-mono"
+                  />
                 </div>
 
-                {/* Nombre del Director */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-emerald-900/80 dark:text-emerald-200/80 mb-1">
-                    Nombre Completo del Director / Administrador
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      required
-                      value={adminName}
-                      onChange={(e) => setAdminName(e.target.value)}
-                      placeholder="Dra. Mariana Cordero"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/60 dark:bg-emerald-950/60 border border-emerald-600/20 dark:border-emerald-400/20 text-emerald-950 dark:text-emerald-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-emerald-900/40 dark:placeholder:text-emerald-300/40"
-                    />
-                  </div>
-                </div>
+                <Input
+                  label="Nombre Completo del Director / Administrador"
+                  id="reg-admin-name"
+                  type="text"
+                  required
+                  autoComplete="name"
+                  value={adminName}
+                  onChange={(e) => setAdminName(e.target.value)}
+                  placeholder="Dra. Mariana Cordero"
+                  icon={<User className="w-4 h-4" />}
+                />
 
-                {/* Correo Electrónico */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-emerald-900/80 dark:text-emerald-200/80 mb-1">
-                    Correo Electrónico Institucional
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@selvaesmeralda.org"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/60 dark:bg-emerald-950/60 border border-emerald-600/20 dark:border-emerald-400/20 text-emerald-950 dark:text-emerald-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-emerald-900/40 dark:placeholder:text-emerald-300/40"
-                    />
-                  </div>
-                </div>
+                <Input
+                  label="Correo Electrónico Oficial"
+                  id="reg-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="directora@esmeralda.org"
+                  icon={<Mail className="w-4 h-4" />}
+                />
 
-                {/* Contraseña */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-emerald-900/80 dark:text-emerald-200/80 mb-1">
-                    Contraseña (mínimo 8 caracteres)
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="password"
-                      required
-                      minLength={8}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/60 dark:bg-emerald-950/60 border border-emerald-600/20 dark:border-emerald-400/20 text-emerald-950 dark:text-emerald-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-emerald-900/40 dark:placeholder:text-emerald-300/40"
-                    />
-                  </div>
-                </div>
+                <Input
+                  label="Contraseña Maestra del Santuario"
+                  id="reg-password"
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  icon={<Lock className="w-4 h-4" />}
+                />
 
-                {/* Switch de Red de Cooperación */}
-                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3 cursor-pointer">
+                {/* Switch de Colaboración de Red */}
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-start gap-3">
                   <input
                     type="checkbox"
                     id="allowCollaboration"
                     checked={allowCollaboration}
                     onChange={(e) => setAllowCollaboration(e.target.checked)}
-                    className="mt-1 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    className="mt-1 h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 border-emerald-400 cursor-pointer"
                   />
-                  <label htmlFor="allowCollaboration" className="text-xs text-emerald-950 dark:text-emerald-100 cursor-pointer leading-relaxed">
-                    <span className="font-bold block text-emerald-800 dark:text-emerald-300">
-                      Activar Red de Cooperación Inter-Santuarios
+                  <label
+                    htmlFor="allowCollaboration"
+                    className="text-xs text-emerald-950 dark:text-emerald-100 cursor-pointer select-none"
+                  >
+                    <span className="font-bold block mb-0.5 flex items-center gap-1.5">
+                      <Share2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      Habilitar Red Inter-Santuarios
                     </span>
-                    Permite derivar y recibir fauna silvestre rescatada con reservas aliadas en situaciones de sobrecupo.
+                    Permite que tu santuario coordine traslados y reciba solicitudes de derivación de fauna en situaciones de sobrecupo de reservas aliadas.
                   </label>
                 </div>
 
-                <button
+                <Button
                   type="submit"
-                  disabled={loading}
-                  className="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/30 hover:shadow-emerald-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+                  variant="primary"
+                  loading={loading}
+                  className="w-full py-3.5"
+                  iconRight={<ArrowRight className="w-4 h-4" />}
                 >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Aprovisionando Schema PostgreSQL...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Crear Santuario y Schema</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+                  Aprovisionar Santuario en PostgreSQL
+                </Button>
               </form>
 
-              <div className="mt-6 pt-4 border-t border-emerald-600/15 dark:border-emerald-400/15 text-center text-xs text-emerald-900/70 dark:text-emerald-300/70">
-                ¿Tu reserva ya está registrada?{" "}
+              <div className="mt-6 pt-5 border-t border-emerald-600/15 dark:border-emerald-400/15 text-center text-xs text-emerald-900/70 dark:text-emerald-300/70">
+                ¿Ya tienes una reserva aprovisionada?{" "}
                 <Link
                   href="/login"
                   className="font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
                 >
-                  Iniciar sesión existente
+                  Iniciar sesión
                 </Link>
               </div>
             </>
@@ -348,7 +316,7 @@ export default function RegisterPage() {
       </main>
 
       <footer className="z-10 py-4 text-center text-xs text-emerald-900/50 dark:text-emerald-300/50">
-        Aprovisionador DDL PostgreSQL con función transaccional pública.
+        Aislamiento multi-tenant por schema físico PostgreSQL garantizado mediante pgcrypto.
       </footer>
     </div>
   );
