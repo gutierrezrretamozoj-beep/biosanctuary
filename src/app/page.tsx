@@ -76,54 +76,57 @@ export default function LandingHomePage() {
       </header>
 
       {/* 2. HERO PRINCIPAL */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-8 py-10 sm:py-16 flex flex-col justify-center items-center text-center z-10">
-        {/* Badge de Aislamiento de Schema */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold bg-emerald-500/15 dark:bg-emerald-400/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 mb-6 backdrop-blur-md shadow-sm">
-          <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>Arquitectura Schema-per-Tenant Estricta &amp; Ecosistema 3D Vivo</span>
-        </div>
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-8 py-8 sm:py-12 flex flex-col justify-center items-center text-center z-10">
+        {/* Contenedor Glassmorphism Principal del Hero para Máxima Legibilidad y Elegancia */}
+        <div className="w-full max-w-4xl p-8 sm:p-12 rounded-3xl backdrop-blur-2xl bg-white/80 dark:bg-emerald-950/70 border border-emerald-600/25 dark:border-emerald-400/25 shadow-2xl shadow-emerald-950/10 dark:shadow-black/50 mb-10 flex flex-col items-center">
+          {/* Badge de Aislamiento de Schema */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold bg-emerald-500/15 dark:bg-emerald-400/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 mb-6 backdrop-blur-md shadow-sm">
+            <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Arquitectura Schema-per-Tenant Estricta &amp; Ecosistema 3D Vivo</span>
+          </div>
 
-        {/* Título Principal */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight max-w-4xl leading-[1.1] mb-6">
-          <span className="bg-gradient-to-r from-emerald-950 via-teal-900 to-emerald-900 dark:from-white dark:via-emerald-100 dark:to-teal-200 bg-clip-text text-transparent">
-            Gestión Inteligente de
-          </span>
-          <br />
-          <span className="bg-gradient-to-r from-emerald-600 via-teal-500 to-amber-500 dark:from-emerald-400 dark:via-teal-300 dark:to-amber-300 bg-clip-text text-transparent">
-            Fauna y Hábitats Silvestres
-          </span>
-        </h1>
+          {/* Título Principal */}
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight max-w-3xl leading-[1.1] mb-6">
+            <span className="bg-gradient-to-r from-emerald-950 via-teal-900 to-emerald-900 dark:from-white dark:via-emerald-100 dark:to-teal-200 bg-clip-text text-transparent">
+              Gestión Inteligente de
+            </span>
+            <br />
+            <span className="bg-gradient-to-r from-emerald-600 via-teal-500 to-amber-500 dark:from-emerald-400 dark:via-teal-300 dark:to-amber-300 bg-clip-text text-transparent">
+              Fauna y Hábitats Silvestres
+            </span>
+          </h1>
 
-        <p className="text-base sm:text-xl max-w-2xl text-emerald-900/80 dark:text-emerald-100/80 mb-10 leading-relaxed font-normal">
-          Plataforma SaaS para refugios y reservas biológicas. Aislamiento criptográfico por esquema PostgreSQL dedicado,
-          visores 3D procedimentales y red colaborativa inter-santuarios con ciclo solar y lunar en vivo.
-        </p>
+          <p className="text-base sm:text-lg max-w-2xl text-emerald-900/80 dark:text-emerald-100/80 mb-8 leading-relaxed font-normal">
+            Plataforma SaaS para refugios y reservas biológicas. Aislamiento criptográfico por esquema PostgreSQL dedicado,
+            visores 3D procedimentales y red colaborativa inter-santuarios con ciclo solar y lunar en vivo.
+          </p>
 
-        {/* Botones de Acción Principales */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 mb-16 w-full sm:w-auto">
-          <Link
-            href="/register"
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-base shadow-xl shadow-emerald-600/30 hover:shadow-emerald-500/50 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 group"
-          >
-            <span>Aprovisionar mi Santuario</span>
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </Link>
+          {/* Botones de Acción Principales */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+            <Link
+              href="/register"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-base shadow-xl shadow-emerald-600/30 hover:shadow-emerald-500/50 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 group"
+            >
+              <span>Aprovisionar mi Santuario</span>
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
 
-          <Link
-            href="/dashboard"
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl backdrop-blur-xl bg-white/80 dark:bg-emerald-950/60 border border-emerald-600/30 dark:border-emerald-400/30 text-emerald-950 dark:text-emerald-100 font-extrabold text-base hover:bg-white dark:hover:bg-emerald-900/70 shadow-lg shadow-emerald-950/10 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
-          >
-            <Activity className="w-5 h-5 text-emerald-500" />
-            <span>Acceder al Panel 3D en Vivo</span>
-          </Link>
+            <Link
+              href="/dashboard"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl backdrop-blur-xl bg-white/90 dark:bg-emerald-900/60 border border-emerald-600/30 dark:border-emerald-400/30 text-emerald-950 dark:text-emerald-100 font-extrabold text-base hover:bg-white dark:hover:bg-emerald-900/80 shadow-lg shadow-emerald-950/10 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+            >
+              <Activity className="w-5 h-5 text-emerald-500" />
+              <span>Acceder al Panel 3D en Vivo</span>
+            </Link>
 
-          <Link
-            href="/login"
-            className="w-full sm:w-auto px-6 py-4 rounded-2xl backdrop-blur-xl bg-emerald-900/10 dark:bg-emerald-950/30 border border-emerald-600/20 dark:border-emerald-400/20 text-emerald-900 dark:text-emerald-200 font-bold text-base hover:bg-emerald-500/15 transition-all flex items-center justify-center gap-2"
-          >
-            <LogIn className="w-4 h-4" />
-            <span>Iniciar Sesión</span>
-          </Link>
+            <Link
+              href="/login"
+              className="w-full sm:w-auto px-6 py-4 rounded-2xl backdrop-blur-xl bg-emerald-900/10 dark:bg-emerald-950/40 border border-emerald-600/20 dark:border-emerald-400/20 text-emerald-900 dark:text-emerald-200 font-bold text-base hover:bg-emerald-500/15 transition-all flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Iniciar Sesión</span>
+            </Link>
+          </div>
         </div>
 
         {/* 3. MÓDULOS DEL DOMINIO CON ENLACES DIRECTOS A LOS ENDPOINTS */}
