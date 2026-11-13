@@ -13,6 +13,12 @@ const directUrl = (
   ""
 ).trim();
 
+const isLocalhost =
+  directUrl.includes("localhost") ||
+  directUrl.includes("127.0.0.1");
+
+const sslConfig = isLocalhost ? false : { rejectUnauthorized: false };
+
 declare global {
   // eslint-disable-next-line no-var
   var __appDataSource: DataSource | undefined;
@@ -25,7 +31,7 @@ export const AppDataSource =
   new DataSource({
     type: "postgres",
     url: directUrl,
-    ssl: { rejectUnauthorized: false },
+    ssl: sslConfig,
     synchronize: false,
     logging: process.env.NODE_ENV === "development" ? ["error", "warn"] : false,
     entities: [

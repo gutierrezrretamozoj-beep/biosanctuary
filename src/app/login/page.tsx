@@ -74,7 +74,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-between overflow-hidden">
+    <div className="relative min-h-screen flex flex-col justify-between overflow-x-hidden overflow-y-auto">
       <DynamicLivingSanctuary />
 
       {/* Top Bar */}

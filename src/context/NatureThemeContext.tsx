@@ -30,6 +30,16 @@ export function NatureThemeProvider({ children }: { children: React.ReactNode })
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (currentMode === "night") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+  }, [currentMode]);
+
   const setMode = (newMode: NatureThemeMode) => {
     setModeState(newMode);
     try {
