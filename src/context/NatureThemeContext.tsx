@@ -17,6 +17,7 @@ const NatureThemeContext = createContext<NatureThemeContextType | undefined>(und
 export function NatureThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<NatureThemeMode>("day");
   const [mounted, setMounted] = useState(false);
+  const currentMode = mounted ? mode : "day";
 
   useEffect(() => {
     try {
@@ -53,8 +54,6 @@ export function NatureThemeProvider({ children }: { children: React.ReactNode })
     const next = mode === "day" ? "night" : "day";
     setMode(next);
   };
-
-  const currentMode = mounted ? mode : "day";
 
   return (
     <NatureThemeContext.Provider
