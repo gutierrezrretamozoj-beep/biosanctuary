@@ -19,7 +19,6 @@ export function NatureThemeProvider({ children }: { children: React.ReactNode })
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Lectura de preferencia visual no sensitiva en localStorage (sin tokens ni datos de sesión)
     try {
       const saved = localStorage.getItem("biosanctuary_theme_mode") as NatureThemeMode;
       if (saved === "day" || saved === "night") {
@@ -45,21 +44,23 @@ export function NatureThemeProvider({ children }: { children: React.ReactNode })
     setMode(next);
   };
 
+  const currentMode = mounted ? mode : "day";
+
   return (
     <NatureThemeContext.Provider
       value={{
-        mode: mounted ? mode : "day",
+        mode: currentMode,
         toggleMode,
         setMode,
-        isDay: (mounted ? mode : "day") === "day",
-        isNight: (mounted ? mode : "day") === "night",
+        isDay: currentMode === "day",
+        isNight: currentMode === "night",
       }}
     >
       <div
-        className={`min-h-screen transition-colors duration-700 ${
-          (mounted ? mode : "day") === "day"
-            ? "bg-[#ECFDF5] text-emerald-950"
-            : "bg-[#040D09] text-emerald-50"
+        className={`w-full h-full min-h-screen transition-colors duration-700 ${
+          currentMode === "day"
+            ? "bg-gradient-to-b from-[#99F6E4] via-[#6EE7B7] to-[#047857] text-emerald-950"
+            : "bg-gradient-to-b from-[#0F172A] via-[#022C22] to-[#040D09] text-emerald-50"
         }`}
       >
         {children}
