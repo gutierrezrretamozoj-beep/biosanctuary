@@ -8,7 +8,7 @@ const LivingSanctuaryCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-emerald-950/20 to-teal-950/20 backdrop-blur-sm animate-pulse" />
+      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-emerald-950/20 to-teal-950/20 backdrop-blur-sm animate-pulse" />
     ),
   }
 );

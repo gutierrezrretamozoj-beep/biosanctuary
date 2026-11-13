@@ -192,7 +192,7 @@ export function LivingEcosystemDashboard({
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden flex flex-col font-sans select-none">
+    <div className="relative w-full h-screen overflow-hidden flex flex-col font-sans select-none">
       {/* Fondo 3D Escénico Completo con Río, Árboles, Búho y Arco Celestial */}
       <DynamicLivingSanctuary />
 
@@ -422,7 +422,7 @@ export function LivingEcosystemDashboard({
         </aside>
 
         {/* ESPACIO PRINCIPAL CON TARJETAS FLOTANTES */}
-        <main className="flex-1 p-6 relative flex flex-col justify-between overflow-hidden">
+        <main className="flex-1 p-4 sm:p-6 relative flex flex-col justify-between overflow-y-auto">
           {/* TARJETA SUPERIOR IZQUIERDA: RECINTOS ACTIVOS */}
           <div className="self-start z-20">
             <Link

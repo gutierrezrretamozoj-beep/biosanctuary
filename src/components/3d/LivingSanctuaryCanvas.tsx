@@ -812,7 +812,7 @@ export function LivingSanctuaryCanvas() {
   const { isDay } = useNatureTheme();
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
       <Canvas
         shadows
         camera={{ position: [0, 2.2, 5.8], fov: 45 }}
