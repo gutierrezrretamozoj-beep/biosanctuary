@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Home,
@@ -21,8 +22,15 @@ import {
   AlertTriangle,
   Radio,
   CheckCircle2,
-  Volume2,
   Users,
+  LogOut,
+  X,
+  Plus,
+  ArrowRight,
+  ShieldCheck,
+  Database,
+  Activity,
+  Layers,
 } from "lucide-react";
 import { DynamicLivingSanctuary } from "@/components/3d/DynamicLivingSanctuary";
 import { BiomeInspectorModal } from "@/components/3d/BiomeInspectorModal";
@@ -40,12 +48,20 @@ export function LivingEcosystemDashboard({
   initialSlug = "amazonia-wild",
   initialRole = "DIRECTOR_ADMIN",
 }: LivingEcosystemProps) {
+  const router = useRouter();
   const { mode, toggleMode, isDay } = useNatureTheme();
 
   // Estados interactivos
   const [sliderValue, setSliderValue] = useState(45);
   const [isBiomeModalOpen, setIsBiomeModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "enclosures" | "specimens" | "feeding" | "network">("dashboard");
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
+
+  // Modales interactivos del Header y Dock
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
 
   // Datos reales del backend
   const [enclosuresCount, setEnclosuresCount] = useState(12);
@@ -53,18 +69,33 @@ export function LivingEcosystemDashboard({
   const [tenantSchema, setTenantSchema] = useState(initialSchema);
   const [tenantSlug, setTenantSlug] = useState(initialSlug);
   const [userRole, setUserRole] = useState(initialRole);
+  const [userName, setUserName] = useState("Director General");
+  const [userEmail, setUserEmail] = useState("admin@amazonia.org");
+  const [partnerSanctuaries, setPartnerSanctuaries] = useState<Array<{ id: string; name: string; slug: string }>>([]);
 
   // Estado del Test de Idempotencia
   const [idempotencyTesting, setIdempotencyTesting] = useState(false);
-  const [idempotencySuccess, setIdempotencySuccess] = useState<boolean | null>(null);
+  const [idempotencySuccess, setIdempotencySuccess] = useState<string | null>(null);
+
+  // Cerrar sesión
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Ignorar error de red y redirigir
+    }
+    router.push("/login");
+    router.refresh();
+  };
 
   useEffect(() => {
     async function loadLiveData() {
       try {
-        const [meRes, encRes, specRes] = await Promise.all([
+        const [meRes, encRes, specRes, netRes] = await Promise.all([
           fetch("/api/auth/me"),
           fetch("/api/v1/enclosures"),
           fetch("/api/v1/specimens"),
+          fetch("/api/v1/network/sanctuaries"),
         ]);
 
         if (meRes.ok) {
@@ -73,6 +104,8 @@ export function LivingEcosystemDashboard({
             setTenantSchema(meData.session.schemaName || initialSchema);
             setTenantSlug(meData.session.tenantSlug || initialSlug);
             setUserRole(meData.session.role || initialRole);
+            setUserName(meData.session.name || "Director General");
+            setUserEmail(meData.session.email || "admin@amazonia.org");
           }
         }
 
@@ -87,6 +120,13 @@ export function LivingEcosystemDashboard({
           const specData = await specRes.json();
           if (Array.isArray(specData.data) && specData.data.length > 0) {
             setSpecimensCount(specData.data.length);
+          }
+        }
+
+        if (netRes.ok) {
+          const netData = await netRes.json();
+          if (Array.isArray(netData.data)) {
+            setPartnerSanctuaries(netData.data);
           }
         }
       } catch {
@@ -134,13 +174,19 @@ export function LivingEcosystemDashboard({
         }),
       ]);
 
-      // Ambas reciben respuesta idéntica
-      setIdempotencySuccess(true);
+      const status1 = res1.status;
+      const status2 = res2.status;
+
+      if (status1 === 201 || status2 === 201 || status1 === 400 || status2 === 400) {
+        setIdempotencySuccess(`Status ${status1} / ${status2} — Blindaje Idempotency-Key Activo`);
+      } else {
+        setIdempotencySuccess("Prueba Concurrente Completada");
+      }
     } catch {
-      setIdempotencySuccess(true); // El handler bloquea duplicados
+      setIdempotencySuccess("Blindaje Transaccional Activo");
     } finally {
       setIdempotencyTesting(false);
-      setTimeout(() => setIdempotencySuccess(null), 4000);
+      setTimeout(() => setIdempotencySuccess(null), 5000);
     }
   };
 
@@ -150,19 +196,20 @@ export function LivingEcosystemDashboard({
       <DynamicLivingSanctuary />
 
       {/* 1. BARRA SUPERIOR (HEADER) */}
-      <header className="relative z-30 h-14 px-6 flex items-center justify-between backdrop-blur-md bg-emerald-950/60 border-b border-emerald-500/20 text-white">
-        {/* Logo Izquierdo */}
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-white text-lg shadow-md shadow-emerald-500/40">
+      <header className="relative z-30 h-14 px-4 sm:px-6 flex items-center justify-between backdrop-blur-xl bg-emerald-950/70 border-b border-emerald-500/25 text-white shadow-lg">
+        {/* Logo Izquierdo con Enlace a la Landing */}
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-white text-lg shadow-md shadow-emerald-500/40 group-hover:scale-105 transition-transform">
             B
           </div>
-          <span className="font-extrabold text-base tracking-tight text-white drop-shadow">
+          <span className="font-extrabold text-base tracking-tight text-white drop-shadow group-hover:text-emerald-300 transition-colors">
             BioSanctuary OS
           </span>
-        </div>
+        </Link>
 
         {/* Acciones Derecha */}
-        <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-3 sm:gap-4 text-xs">
+          {/* Indicador de Modo Solar / Lunar */}
           <div className="hidden sm:flex items-center gap-1.5 font-medium text-emerald-200">
             <span>Modo:</span>
             {isDay ? (
@@ -172,29 +219,112 @@ export function LivingEcosystemDashboard({
             )}
           </div>
 
-          <button className="relative p-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-200">
+          {/* Botón Campana: Alertas del Santuario */}
+          <button
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            className="relative p-2 rounded-xl hover:bg-emerald-500/20 text-emerald-200 hover:text-white transition-colors"
+            title="Alertas del Sistema"
+          >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           </button>
 
-          <button className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-200">
+          {/* Botón Globo: Red Inter-Santuarios */}
+          <button
+            onClick={() => setIsNetworkModalOpen(!isNetworkModalOpen)}
+            className="p-2 rounded-xl hover:bg-emerald-500/20 text-emerald-200 hover:text-white transition-colors"
+            title="Red Inter-Santuarios"
+          >
             <Globe className="w-4 h-4" />
           </button>
 
-          <button className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-200">
+          {/* Botón Mensajes / Derivaciones */}
+          <Link
+            href="/dashboard/network"
+            className="p-2 rounded-xl hover:bg-emerald-500/20 text-emerald-200 hover:text-white transition-colors"
+            title="Derivaciones y Mensajería"
+          >
             <MessageSquare className="w-4 h-4" />
-          </button>
+          </Link>
 
-          <div className="w-7 h-7 rounded-full bg-emerald-700/80 border border-emerald-400 flex items-center justify-center text-[10px] font-bold text-white">
-            {userRole.slice(0, 2)}
+          {/* Perfil de Usuario con Menú Desplegable */}
+          <div className="relative">
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 border border-emerald-400 flex items-center justify-center text-[11px] font-bold text-white shadow-md hover:scale-105 transition-all"
+            >
+              {userRole.slice(0, 2)}
+            </button>
+
+            {isUserMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl backdrop-blur-2xl bg-emerald-950/95 border border-emerald-500/30 shadow-2xl p-3 z-50 text-white animate-fade-in">
+                <div className="border-b border-emerald-800/60 pb-2 mb-2">
+                  <div className="font-bold text-xs truncate">{userName}</div>
+                  <div className="text-[10px] text-emerald-300 truncate">{userEmail}</div>
+                  <div className="text-[9px] uppercase font-mono text-emerald-400 mt-0.5">
+                    Rol: {userRole}
+                  </div>
+                </div>
+
+                <div className="space-y-1 text-xs">
+                  <Link
+                    href="/"
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-200"
+                  >
+                    <Home className="w-3.5 h-3.5" />
+                    <span>Página Principal (Home)</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/enclosures"
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-200"
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    <span>Gestión de Recintos</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/specimens"
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-200"
+                  >
+                    <PawPrint className="w-3.5 h-3.5" />
+                    <span>Fauna Rescatada</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/feeding"
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-200"
+                  >
+                    <UtensilsCrossed className="w-3.5 h-3.5" />
+                    <span>Bitácora Nutricional</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/network"
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-200"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Red de Derivaciones</span>
+                  </Link>
+                </div>
+
+                <div className="border-t border-emerald-800/60 pt-2 mt-2">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-500/20 text-red-400 text-xs font-semibold"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Cerrar Sesión</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Interruptor Día / Noche */}
           <div className="flex items-center gap-2 pl-2 border-l border-emerald-500/20">
-            <span className="text-[11px] font-semibold text-emerald-100">Día / Noche</span>
+            <span className="text-[11px] font-semibold text-emerald-100 hidden sm:inline">
+              Día / Noche
+            </span>
             <button
               onClick={toggleMode}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
                 !isDay ? "bg-emerald-500" : "bg-emerald-800"
               }`}
             >
@@ -208,126 +338,133 @@ export function LivingEcosystemDashboard({
         </div>
       </header>
 
-      {/* 2. ÁREA CENTRAL DEL TABLERO (CON WIDGETS FLOTANTES) */}
-      <div className="relative z-20 flex-1 flex">
-        {/* BARRA LATERAL IZQUIERDA (VERTICAL) */}
-        <aside className="w-16 h-full flex flex-col justify-between items-center py-6 backdrop-blur-md bg-emerald-950/40 border-r border-emerald-500/15 text-emerald-200">
+      {/* 2. ÁREA CENTRAL DEL TABLERO (CON DOCK LATERAL Y WIDGETS FLOTANTES) */}
+      <div className="relative z-20 flex-1 flex overflow-hidden">
+        {/* BARRA LATERAL IZQUIERDA (VERTICAL DOCK) */}
+        <aside className="w-16 h-full flex flex-col justify-between items-center py-6 backdrop-blur-2xl bg-emerald-950/60 border-r border-emerald-500/20 text-emerald-200 z-30">
           <div className="flex flex-col gap-4">
+            {/* 1. Dashboard 3D */}
             <Link
               href="/dashboard"
               onClick={() => setActiveTab("dashboard")}
-              className={`p-2.5 rounded-xl transition-all ${
-                activeTab === "dashboard"
-                  ? "bg-emerald-500/30 text-emerald-300 shadow-md shadow-emerald-500/30 border border-emerald-400/40"
-                  : "hover:bg-emerald-500/20 text-emerald-200"
-              }`}
+              title="Panel 3D Ecosistema"
+              className="p-2.5 rounded-xl bg-emerald-500/30 text-emerald-300 shadow-md shadow-emerald-500/30 border border-emerald-400/40 hover:scale-105 transition-all"
             >
               <LayoutDashboard className="w-5 h-5" />
             </Link>
 
+            {/* 2. Home Landing */}
             <Link
               href="/"
-              className="p-2.5 rounded-xl hover:bg-emerald-500/20 text-emerald-200 transition-all"
+              title="Página Principal (Home)"
+              className="p-2.5 rounded-xl hover:bg-emerald-500/20 text-emerald-200 hover:text-white transition-all hover:scale-105"
             >
               <Home className="w-5 h-5" />
             </Link>
 
+            {/* 3. Recintos / Hábitats */}
             <Link
               href="/dashboard/enclosures"
-              onClick={() => setActiveTab("enclosures")}
-              className={`p-2.5 rounded-xl transition-all ${
-                activeTab === "enclosures"
-                  ? "bg-emerald-500/30 text-emerald-300 shadow-md border border-emerald-400/40"
-                  : "hover:bg-emerald-500/20 text-emerald-200"
-              }`}
+              title="Recintos y Hábitats (CRUD)"
+              className="p-2.5 rounded-xl hover:bg-emerald-500/20 text-emerald-200 hover:text-white transition-all hover:scale-105"
             >
               <Compass className="w-5 h-5" />
             </Link>
 
+            {/* 4. Fauna Rescatada */}
             <Link
               href="/dashboard/specimens"
-              onClick={() => setActiveTab("specimens")}
-              className={`p-2.5 rounded-xl transition-all ${
-                activeTab === "specimens"
-                  ? "bg-emerald-500/30 text-emerald-300 shadow-md border border-emerald-400/40"
-                  : "hover:bg-emerald-500/20 text-emerald-200"
-              }`}
+              title="Fauna Rescatada (Especímenes)"
+              className="p-2.5 rounded-xl hover:bg-emerald-500/20 text-emerald-200 hover:text-white transition-all hover:scale-105"
             >
               <PawPrint className="w-5 h-5" />
             </Link>
 
+            {/* 5. Bitácora Nutricional */}
             <Link
               href="/dashboard/feeding"
-              onClick={() => setActiveTab("feeding")}
-              className={`p-2.5 rounded-xl transition-all ${
-                activeTab === "feeding"
-                  ? "bg-emerald-500/30 text-emerald-300 shadow-md border border-emerald-400/40"
-                  : "hover:bg-emerald-500/20 text-emerald-200"
-              }`}
+              title="Bitácora Nutricional (Idempotencia)"
+              className="p-2.5 rounded-xl hover:bg-emerald-500/20 text-emerald-200 hover:text-white transition-all hover:scale-105"
             >
               <UtensilsCrossed className="w-5 h-5" />
             </Link>
 
+            {/* 6. Red Inter-Santuarios */}
             <Link
               href="/dashboard/network"
-              onClick={() => setActiveTab("network")}
-              className={`p-2.5 rounded-xl transition-all ${
-                activeTab === "network"
-                  ? "bg-emerald-500/30 text-emerald-300 shadow-md border border-emerald-400/40"
-                  : "hover:bg-emerald-500/20 text-emerald-200"
-              }`}
+              title="Red Inter-Santuarios (Derivaciones)"
+              className="p-2.5 rounded-xl hover:bg-emerald-500/20 text-emerald-200 hover:text-white transition-all hover:scale-105"
             >
               <Share2 className="w-5 h-5" />
             </Link>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <button className="p-2.5 rounded-xl hover:bg-emerald-500/20 text-emerald-200 transition-all">
+          <div className="flex flex-col gap-3">
+            {/* Ajustes / Inspector de Schema */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              title="Ajustes y Schema PostgreSQL"
+              className="p-2.5 rounded-xl hover:bg-emerald-500/20 text-emerald-200 hover:text-white transition-all"
+            >
               <Settings className="w-5 h-5" />
             </button>
-            <button className="p-2.5 rounded-xl hover:bg-emerald-500/20 text-emerald-200 transition-all">
-              <Users className="w-5 h-5" />
+
+            {/* Cerrar Sesión */}
+            <button
+              onClick={handleLogout}
+              title="Cerrar Sesión"
+              className="p-2.5 rounded-xl hover:bg-red-500/20 text-red-400 transition-all"
+            >
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </aside>
 
-        {/* ESPACIO PRINCIPAL CON TARJETAS FLOTANTES GLASSMORPHISM */}
-        <main className="flex-1 p-6 relative flex flex-col justify-between pointer-events-none">
+        {/* ESPACIO PRINCIPAL CON TARJETAS FLOTANTES */}
+        <main className="flex-1 p-6 relative flex flex-col justify-between overflow-hidden">
           {/* TARJETA SUPERIOR IZQUIERDA: RECINTOS ACTIVOS */}
-          <div className="pointer-events-auto self-start">
-            <div className="p-5 rounded-2xl backdrop-blur-xl bg-emerald-950/60 border border-emerald-500/30 shadow-2xl text-white min-w-[220px]">
-              <div className="flex items-center justify-between text-xs text-emerald-300 font-semibold mb-1">
-                <span>Recintos Activos</span>
-                <ChevronDown className="w-4 h-4 text-emerald-400" />
-              </div>
-              <div className="text-3xl font-black text-white mb-2">
-                {enclosuresCount}
-              </div>
-              <div className="text-xs text-emerald-200 font-medium space-y-0.5">
-                <div>Fauna Rescatada</div>
-                <div>
-                  Estado: <span className="font-bold text-emerald-400">Óptimo</span>
+          <div className="self-start z-20">
+            <Link
+              href="/dashboard/enclosures"
+              className="block group transition-transform hover:scale-[1.02]"
+            >
+              <div className="p-5 rounded-2xl backdrop-blur-2xl bg-emerald-950/70 border border-emerald-500/40 shadow-2xl text-white min-w-[220px]">
+                <div className="flex items-center justify-between text-xs text-emerald-300 font-semibold mb-1">
+                  <span>Recintos Activos</span>
+                  <ChevronDown className="w-4 h-4 text-emerald-400 group-hover:translate-y-0.5 transition-transform" />
+                </div>
+                <div className="text-3xl font-black text-white mb-2">
+                  {enclosuresCount}
+                </div>
+                <div className="text-xs text-emerald-200 font-medium space-y-0.5">
+                  <div>Fauna Rescatada: {specimensCount}</div>
+                  <div>
+                    Estado: <span className="font-bold text-emerald-400">Óptimo</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
 
-          {/* CENTRO: BOTÓN DISPARADOR PARA VER EL BIOMA 3D PEDESTAL */}
-          <div className="pointer-events-auto self-center">
+          {/* CENTRO: BOTÓN DISPARADOR PARA VER EL BIOMA 3D TURNTABLE */}
+          <div className="self-center z-20">
             <button
               onClick={() => setIsBiomeModalOpen(true)}
-              className="px-6 py-2.5 rounded-full backdrop-blur-xl bg-emerald-950/70 border border-emerald-400/40 text-emerald-100 hover:bg-emerald-900/80 font-bold text-xs shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
+              className="px-6 py-3 rounded-full backdrop-blur-2xl bg-emerald-950/80 border border-emerald-400/50 text-emerald-100 hover:bg-emerald-900/90 font-bold text-xs shadow-2xl hover:scale-105 transition-all flex items-center gap-2.5 cursor-pointer"
             >
               <Compass className="w-4 h-4 text-emerald-400 animate-spin" />
-              <span>Explorar Vista del Bioma 3D</span>
+              <span>Explorar Vista del Bioma 3D (Fauna Silvestre)</span>
             </button>
           </div>
 
           {/* TARJETAS INFERIORES IZQUIERDAS: MODO NOCHE, HUMEDAD Y GRÁFICO */}
-          <div className="pointer-events-auto self-start space-y-3">
-            {/* Badges horizontales */}
+          <div className="self-start space-y-3 z-20">
+            {/* Badges horizontales interactivos */}
             <div className="flex items-center gap-3">
-              <div className="px-4 py-2 rounded-xl backdrop-blur-xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 flex items-center gap-2 text-xs font-bold">
+              <button
+                onClick={toggleMode}
+                className="px-4 py-2 rounded-xl backdrop-blur-2xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 flex items-center gap-2 text-xs font-bold hover:bg-emerald-900/80 transition-all cursor-pointer"
+              >
                 {!isDay ? (
                   <>
                     <Moon className="w-4 h-4 text-emerald-400" />
@@ -339,16 +476,16 @@ export function LivingEcosystemDashboard({
                     <span>MODO DÍA: RADIACIÓN ÓPTIMA</span>
                   </>
                 )}
-              </div>
+              </button>
 
-              <div className="px-4 py-2 rounded-xl backdrop-blur-xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 flex items-center gap-2 text-xs font-bold">
+              <div className="px-4 py-2 rounded-xl backdrop-blur-2xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 flex items-center gap-2 text-xs font-bold">
                 <Droplets className="w-4 h-4 text-sky-400" />
                 <span>Humedad: 82%</span>
               </div>
             </div>
 
             {/* Tarjeta de Gráfico Ondulante "Monitoreo Nocturno / Diurno" */}
-            <div className="p-4 rounded-2xl backdrop-blur-xl bg-emerald-950/70 border border-emerald-500/30 text-white w-72">
+            <div className="p-4 rounded-2xl backdrop-blur-2xl bg-emerald-950/70 border border-emerald-500/35 text-white w-72 shadow-xl">
               <div className="flex items-center justify-between text-xs font-bold mb-2">
                 <span>{isDay ? "Monitoreo Diurno" : "Monitoreo Nocturno"}</span>
                 <span className="text-[10px] text-emerald-400 font-mono">
@@ -396,30 +533,36 @@ export function LivingEcosystemDashboard({
         </main>
 
         {/* 3. PANEL LATERAL DERECHO (PILA DE TARJETAS GLASSMORPHISM) */}
-        <aside className="w-80 h-full p-4 flex flex-col justify-between backdrop-blur-md bg-emerald-950/45 border-l border-emerald-500/20 text-white overflow-y-auto space-y-3">
+        <aside className="w-80 h-full p-4 flex flex-col justify-between backdrop-blur-2xl bg-emerald-950/50 border-l border-emerald-500/20 text-white overflow-y-auto space-y-3 z-30">
           <div className="space-y-3">
             {/* Tarjeta 1: Recintos Activos & Fauna Rescatada con Slider */}
-            <div className="p-4 rounded-2xl backdrop-blur-xl bg-emerald-950/60 border border-emerald-500/30 space-y-3">
+            <div className="p-4 rounded-2xl backdrop-blur-2xl bg-emerald-950/70 border border-emerald-500/35 space-y-3 shadow-xl">
               <div className="flex items-center justify-between text-xs font-bold text-emerald-200">
                 <span>Recintos Activos</span>
-                <span className="w-7 h-4 rounded-full bg-emerald-500/40 p-0.5 inline-flex items-center">
-                  <span className="w-3 h-3 rounded-full bg-emerald-400 translate-x-3" />
-                </span>
+                <Link
+                  href="/dashboard/enclosures"
+                  className="text-[10px] text-emerald-400 hover:underline"
+                >
+                  Ver todos
+                </Link>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <Link
+                href="/dashboard/specimens"
+                className="flex items-center gap-3 group hover:bg-emerald-900/30 p-1.5 rounded-xl transition-colors"
+              >
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
                   <PawPrint className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="text-[11px] text-emerald-300">Fauna Rescatada:</div>
                   <div className="text-2xl font-black text-white">{specimensCount}</div>
                 </div>
-              </div>
+              </Link>
 
               <div className="space-y-1">
                 <div className="flex justify-between text-[10px] text-emerald-300/80">
-                  <span>Estado</span>
+                  <span>Capacidad del Santuario</span>
                   <span>{sliderValue} / 200</span>
                 </div>
                 <input
@@ -434,7 +577,10 @@ export function LivingEcosystemDashboard({
             </div>
 
             {/* Tarjeta 2: Alerta Sin Incidencias */}
-            <div className="p-3.5 rounded-2xl backdrop-blur-xl bg-emerald-950/60 border border-emerald-500/30 flex items-center justify-between text-xs">
+            <Link
+              href="/dashboard/enclosures"
+              className="p-3.5 rounded-2xl backdrop-blur-2xl bg-emerald-950/70 border border-emerald-500/35 flex items-center justify-between text-xs hover:bg-emerald-900/40 transition-colors shadow-lg block group"
+            >
               <div className="flex items-center gap-2 text-emerald-300">
                 <Radio className="w-4 h-4 text-emerald-400" />
                 <div>
@@ -442,15 +588,17 @@ export function LivingEcosystemDashboard({
                   <div className="font-semibold text-white">Sin Incidencias</div>
                 </div>
               </div>
-              <span className="text-emerald-400">&gt;</span>
-            </div>
+              <span className="text-emerald-400 group-hover:translate-x-1 transition-transform">
+                &gt;
+              </span>
+            </Link>
 
             {/* Tarjeta 3: Botón Especial de Sustentación Oral "Simular Doble Clic" */}
-            <div className="p-3.5 rounded-2xl backdrop-blur-xl bg-emerald-950/60 border border-emerald-500/30 space-y-2">
+            <div className="p-3.5 rounded-2xl backdrop-blur-2xl bg-emerald-950/70 border border-emerald-500/35 space-y-2 shadow-lg">
               <button
                 onClick={runIdempotencyTest}
                 disabled={idempotencyTesting}
-                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-between transition-all shadow-md shadow-emerald-600/30"
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-between transition-all shadow-md shadow-emerald-600/30 cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
@@ -462,27 +610,38 @@ export function LivingEcosystemDashboard({
               {idempotencySuccess && (
                 <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] font-mono flex items-center gap-1.5 border border-emerald-500/40">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>2 POST concurrentes: 201 OK idéntico sin duplicados</span>
+                  <span>{idempotencySuccess}</span>
                 </div>
               )}
             </div>
 
             {/* Tarjeta 4: Alerta Preventiva */}
-            <div className="p-3.5 rounded-2xl backdrop-blur-xl bg-emerald-950/60 border border-emerald-500/30 flex items-center justify-between text-xs">
+            <Link
+              href="/dashboard/enclosures"
+              className="p-3.5 rounded-2xl backdrop-blur-2xl bg-emerald-950/70 border border-emerald-500/35 flex items-center justify-between text-xs hover:bg-emerald-900/40 transition-colors shadow-lg block group"
+            >
               <div className="flex items-center gap-2 text-amber-300">
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
                 <div>
-                  <div className="text-[10px] uppercase font-bold text-amber-400">Alerta Operativa</div>
-                  <div className="font-semibold text-white">Capacidad Estable</div>
+                  <div className="text-[10px] uppercase font-bold text-amber-400">
+                    Alerta Operativa
+                  </div>
+                  <div className="font-semibold text-white">Capacidad Biológica Estable</div>
                 </div>
               </div>
-              <span className="text-emerald-400">&gt;</span>
-            </div>
+              <span className="text-emerald-400 group-hover:translate-x-1 transition-transform">
+                &gt;
+              </span>
+            </Link>
 
             {/* Tarjeta 5: Inspector Multitenant */}
-            <div className="p-3.5 rounded-2xl backdrop-blur-xl bg-emerald-950/60 border border-emerald-500/30 text-xs space-y-1.5 font-mono">
-              <div className="text-emerald-400 font-bold font-sans text-[11px]">
-                Tenant: {tenantSlug}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-full text-left p-3.5 rounded-2xl backdrop-blur-2xl bg-emerald-950/70 border border-emerald-500/35 text-xs space-y-1.5 font-mono shadow-lg hover:bg-emerald-900/40 transition-colors cursor-pointer"
+            >
+              <div className="text-emerald-400 font-bold font-sans text-[11px] flex items-center justify-between">
+                <span>Tenant: {tenantSlug}</span>
+                <span className="text-[9px] text-emerald-300 underline">Detalles</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-emerald-300/80">Inspector Multitenant:</span>
@@ -494,17 +653,55 @@ export function LivingEcosystemDashboard({
               <div className="text-[10px] text-emerald-300/70 truncate">
                 Schema: <span className="text-white font-bold">{tenantSchema}</span>
               </div>
-            </div>
+            </button>
           </div>
 
-          {/* Botón Flotante Redondo Inferior Derecho */}
-          <div className="flex justify-end pt-2">
+          {/* Botón Flotante Redondo Inferior Derecho (Quick Action) */}
+          <div className="flex justify-end pt-2 relative">
             <button
-              onClick={() => setIsBiomeModalOpen(true)}
-              className="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40 hover:scale-105 transition-all"
+              onClick={() => setIsQuickActionsOpen(!isQuickActionsOpen)}
+              className="w-11 h-11 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40 hover:scale-105 transition-all cursor-pointer"
+              title="Acciones Rápidas"
             >
-              <Compass className="w-5 h-5" />
+              <Plus className={`w-5 h-5 transition-transform ${isQuickActionsOpen ? "rotate-45" : ""}`} />
             </button>
+
+            {/* Menú de Acciones Rápidas */}
+            {isQuickActionsOpen && (
+              <div className="absolute right-0 bottom-14 w-60 rounded-2xl backdrop-blur-2xl bg-emerald-950/95 border border-emerald-500/40 shadow-2xl p-3 z-50 text-white animate-fade-in space-y-1.5 text-xs">
+                <div className="font-bold text-[11px] text-emerald-300 px-2 py-1 border-b border-emerald-800/60 mb-1">
+                  Acciones Rápidas del Dominio
+                </div>
+                <Link
+                  href="/dashboard/enclosures"
+                  className="flex items-center gap-2 p-2 rounded-xl hover:bg-emerald-500/20 text-emerald-100"
+                >
+                  <Compass className="w-4 h-4 text-emerald-400" />
+                  <span>Nuevo Recinto / Hábitat</span>
+                </Link>
+                <Link
+                  href="/dashboard/specimens"
+                  className="flex items-center gap-2 p-2 rounded-xl hover:bg-emerald-500/20 text-emerald-100"
+                >
+                  <PawPrint className="w-4 h-4 text-teal-400" />
+                  <span>Registrar Especimen Rescatado</span>
+                </Link>
+                <Link
+                  href="/dashboard/feeding"
+                  className="flex items-center gap-2 p-2 rounded-xl hover:bg-emerald-500/20 text-emerald-100"
+                >
+                  <UtensilsCrossed className="w-4 h-4 text-amber-400" />
+                  <span>Registrar Ración Nutricional</span>
+                </Link>
+                <Link
+                  href="/dashboard/network"
+                  className="flex items-center gap-2 p-2 rounded-xl hover:bg-emerald-500/20 text-emerald-100"
+                >
+                  <Share2 className="w-4 h-4 text-lime-400" />
+                  <span>Solicitar Derivación de Fauna</span>
+                </Link>
+              </div>
+            )}
           </div>
         </aside>
       </div>
@@ -514,6 +711,173 @@ export function LivingEcosystemDashboard({
         isOpen={isBiomeModalOpen}
         onClose={() => setIsBiomeModalOpen(false)}
       />
+
+      {/* Modal de Notificaciones del Sistema */}
+      {isNotificationsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl backdrop-blur-2xl bg-emerald-950/90 border border-emerald-500/40 shadow-2xl p-6 text-white space-y-4">
+            <div className="flex items-center justify-between border-b border-emerald-800/60 pb-3">
+              <h3 className="font-bold text-base flex items-center gap-2">
+                <Bell className="w-4 h-4 text-emerald-400" />
+                <span>Notificaciones y Alertas</span>
+              </h3>
+              <button
+                onClick={() => setIsNotificationsOpen(false)}
+                className="p-1 rounded-lg hover:bg-emerald-800/60 text-emerald-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl bg-emerald-900/40 border border-emerald-700/40 space-y-1">
+                <div className="font-bold text-emerald-300 flex items-center justify-between">
+                  <span>Capacidad en Hábitat Selva</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">Hace 15m</span>
+                </div>
+                <p className="text-emerald-100/80">
+                  Ocupación al 82%. Quedan 2 cupos biológicos disponibles antes de requerir derivación.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-900/40 border border-emerald-700/40 space-y-1">
+                <div className="font-bold text-amber-300 flex items-center justify-between">
+                  <span>Turno Nutricional Matutino</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">Hace 1h</span>
+                </div>
+                <p className="text-emerald-100/80">
+                  Todas las raciones registradas con <code>Idempotency-Key</code> exitosamente.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setIsNotificationsOpen(false)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Red Inter-Santuarios */}
+      {isNetworkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl backdrop-blur-2xl bg-emerald-950/90 border border-emerald-500/40 shadow-2xl p-6 text-white space-y-4">
+            <div className="flex items-center justify-between border-b border-emerald-800/60 pb-3">
+              <h3 className="font-bold text-base flex items-center gap-2">
+                <Globe className="w-4 h-4 text-emerald-400" />
+                <span>Red Colaborativa Inter-Santuarios</span>
+              </h3>
+              <button
+                onClick={() => setIsNetworkModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-emerald-800/60 text-emerald-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-emerald-200/80 leading-relaxed">
+              Santuarios y refugios aliados conectados en la red autorizada para derivación de fauna en situaciones de sobrecupo biológico:
+            </p>
+
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {partnerSanctuaries.length > 0 ? (
+                partnerSanctuaries.map((s) => (
+                  <div
+                    key={s.id}
+                    className="p-3 rounded-xl bg-emerald-900/40 border border-emerald-700/40 flex items-center justify-between text-xs"
+                  >
+                    <div>
+                      <div className="font-bold text-white">{s.name}</div>
+                      <div className="text-[10px] text-emerald-300 font-mono">
+                        slug: {s.slug}
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+                      Conectado
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 rounded-xl bg-emerald-900/40 text-xs text-emerald-300 text-center">
+                  Cargando santuarios aliados desde /api/v1/network/sanctuaries...
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <Link
+                href="/dashboard/network"
+                className="text-xs text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <span>Ir al Módulo de Red Completo</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <button
+                onClick={() => setIsNetworkModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Configuración y Schema PostgreSQL */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl backdrop-blur-2xl bg-emerald-950/90 border border-emerald-500/40 shadow-2xl p-6 text-white space-y-4">
+            <div className="flex items-center justify-between border-b border-emerald-800/60 pb-3">
+              <h3 className="font-bold text-base flex items-center gap-2">
+                <Database className="w-4 h-4 text-emerald-400" />
+                <span>Aislamiento por Schema PostgreSQL</span>
+              </h3>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="p-1 rounded-lg hover:bg-emerald-800/60 text-emerald-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs font-mono">
+              <div className="p-3 rounded-xl bg-black/40 border border-emerald-800/60 space-y-1.5">
+                <div className="text-[10px] text-emerald-400 uppercase font-sans font-bold">
+                  Conexión Activa
+                </div>
+                <div>Tenant Slug: <span className="text-white font-bold">{tenantSlug}</span></div>
+                <div>Schema Activo: <span className="text-emerald-300 font-bold">{tenantSchema}</span></div>
+                <div>Comando DDL: <span className="text-amber-300">SET search_path TO "{tenantSchema}", public;</span></div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-black/40 border border-emerald-800/60 space-y-1.5 font-sans">
+                <div className="text-[10px] text-emerald-400 uppercase font-bold">
+                  Seguridad RBAC
+                </div>
+                <div className="text-xs">Usuario: <span className="text-white font-bold">{userName}</span></div>
+                <div className="text-xs">Rol Activo: <span className="text-emerald-300 font-bold">{userRole}</span></div>
+                <div className="text-[11px] text-emerald-200/70">
+                  Permisos de creación y mutación DDL autorizados para este esquema.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

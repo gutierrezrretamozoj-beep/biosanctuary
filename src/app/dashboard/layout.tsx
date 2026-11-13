@@ -43,6 +43,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.refresh();
   };
 
+  // En la vista general principal (/dashboard), renderizar a pantalla completa con el dock y controles del video
+  if (pathname === "/dashboard") {
+    return <>{children}</>;
+  }
+
   return (
     <div className="relative min-h-screen flex flex-col md:flex-row overflow-hidden selection:bg-emerald-500 selection:text-white">
       {/* Fondo 3D Atmosférico */}
