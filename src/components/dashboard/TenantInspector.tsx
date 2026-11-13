@@ -22,7 +22,7 @@ export function TenantInspector() {
         const res = await fetch("/api/auth/me");
         if (res.ok) {
           const data = await res.json();
-          setSession(data.session);
+          setSession(data.user || data.session);
         }
       } catch {
         // Silencioso

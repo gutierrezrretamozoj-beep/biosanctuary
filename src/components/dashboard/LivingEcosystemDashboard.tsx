@@ -100,12 +100,13 @@ export function LivingEcosystemDashboard({
 
         if (meRes.ok) {
           const meData = await meRes.json();
-          if (meData.session) {
-            setTenantSchema(meData.session.schemaName || initialSchema);
-            setTenantSlug(meData.session.tenantSlug || initialSlug);
-            setUserRole(meData.session.role || initialRole);
-            setUserName(meData.session.name || "Director General");
-            setUserEmail(meData.session.email || "admin@amazonia.org");
+          const sess = meData.user || meData.session;
+          if (sess) {
+            setTenantSchema(sess.schemaName || initialSchema);
+            setTenantSlug(sess.tenantSlug || initialSlug);
+            setUserRole(sess.role || initialRole);
+            setUserName(sess.name || "Director General");
+            setUserEmail(sess.email || "admin@amazonia.org");
           }
         }
 
