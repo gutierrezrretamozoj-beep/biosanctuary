@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
@@ -12,194 +12,53 @@ import {
   Zap,
   RotateCw,
   Sparkles,
-  TreePine,
-  Waves,
-  Sun,
-  Flame,
-  Info,
 } from "lucide-react";
 import { useNatureTheme } from "@/context/NatureThemeContext";
+import {
+  WildlifeFox,
+  WildlifeParrot,
+  WildlifeFlamingo,
+  WildlifeHorse,
+  WildlifeFish,
+  RealisticPlant,
+} from "./models";
 
 /**
- * Escultura Low-Poly del Ciervo en Reposo (Resting Deer)
- * Reproducción fidedigna con cornamenta ramificada, pelaje leonado,
- * manchas en el lomo, orejas atentas y patas replegadas
- */
-function SculptedDeer({ isDay }: { isDay: boolean }) {
-  const deerRef = useRef<THREE.Group>(null);
-
-  useFrame(({ clock }) => {
-    if (deerRef.current) {
-      // Respiración sutil del animal
-      const breath = Math.sin(clock.getElapsedTime() * 2.0) * 0.015;
-      deerRef.current.position.y = 0.32 + breath;
-    }
-  });
-
-  return (
-    <group ref={deerRef} position={[0, 0.32, 0]} scale={[0.9, 0.9, 0.9]}>
-      {/* Cuerpo principal (pecho y lomo) */}
-      <mesh position={[0, 0.32, -0.05]} castShadow>
-        <boxGeometry args={[0.72, 0.48, 1.25]} />
-        <meshStandardMaterial
-          color="#B45309"
-          roughness={0.82}
-          metalness={0.05}
-          flatShading
-        />
-      </mesh>
-
-      {/* Vientre y pecho claro */}
-      <mesh position={[0, 0.22, 0.05]}>
-        <boxGeometry args={[0.68, 0.3, 1.1]} />
-        <meshStandardMaterial color="#FEF3C7" roughness={0.85} flatShading />
-      </mesh>
-
-      {/* Cuello esbelto y curvado */}
-      <mesh position={[0, 0.78, 0.48]} rotation={[-0.35, 0, 0]} castShadow>
-        <boxGeometry args={[0.32, 0.6, 0.38]} />
-        <meshStandardMaterial color="#D97706" roughness={0.8} flatShading />
-      </mesh>
-
-      {/* Cabeza del ciervo */}
-      <mesh position={[0, 1.15, 0.62]} rotation={[0.08, 0, 0]} castShadow>
-        <boxGeometry args={[0.28, 0.28, 0.44]} />
-        <meshStandardMaterial color="#B45309" roughness={0.8} flatShading />
-      </mesh>
-
-      {/* Hocico */}
-      <mesh position={[0, 1.08, 0.84]}>
-        <boxGeometry args={[0.2, 0.16, 0.2]} />
-        <meshStandardMaterial color="#451A03" roughness={0.7} flatShading />
-      </mesh>
-
-      {/* Ojos oscuros */}
-      <mesh position={[-0.14, 1.2, 0.68]}>
-        <sphereGeometry args={[0.04, 8, 8]} />
-        <meshBasicMaterial color="#0F172A" />
-      </mesh>
-      <mesh position={[0.14, 1.2, 0.68]}>
-        <sphereGeometry args={[0.04, 8, 8]} />
-        <meshBasicMaterial color="#0F172A" />
-      </mesh>
-
-      {/* Orejas triangulares estilizadas */}
-      <mesh position={[-0.2, 1.28, 0.48]} rotation={[0.2, 0, -0.45]}>
-        <coneGeometry args={[0.08, 0.24, 4]} />
-        <meshStandardMaterial color="#D97706" flatShading />
-      </mesh>
-      <mesh position={[0.2, 1.28, 0.48]} rotation={[0.2, 0, 0.45]}>
-        <coneGeometry args={[0.08, 0.24, 4]} />
-        <meshStandardMaterial color="#D97706" flatShading />
-      </mesh>
-
-      {/* Cornamenta ramificada elegante (Astas) */}
-      <group position={[0, 1.35, 0.52]}>
-        {/* Asta izquierda */}
-        <mesh position={[-0.15, 0.2, 0]} rotation={[0.15, 0, -0.32]}>
-          <cylinderGeometry args={[0.025, 0.04, 0.45, 5]} />
-          <meshStandardMaterial color="#FEF3C7" roughness={0.6} flatShading />
-        </mesh>
-        <mesh position={[-0.26, 0.38, 0.04]} rotation={[0.3, 0, -0.7]}>
-          <cylinderGeometry args={[0.018, 0.025, 0.24, 4]} />
-          <meshStandardMaterial color="#FEF3C7" roughness={0.6} flatShading />
-        </mesh>
-        <mesh position={[-0.18, 0.45, -0.06]} rotation={[-0.2, 0, -0.2]}>
-          <cylinderGeometry args={[0.015, 0.022, 0.22, 4]} />
-          <meshStandardMaterial color="#FEF3C7" roughness={0.6} flatShading />
-        </mesh>
-
-        {/* Asta derecha */}
-        <mesh position={[0.15, 0.2, 0]} rotation={[0.15, 0, 0.32]}>
-          <cylinderGeometry args={[0.025, 0.04, 0.45, 5]} />
-          <meshStandardMaterial color="#FEF3C7" roughness={0.6} flatShading />
-        </mesh>
-        <mesh position={[0.26, 0.38, 0.04]} rotation={[0.3, 0, 0.7]}>
-          <cylinderGeometry args={[0.018, 0.025, 0.24, 4]} />
-          <meshStandardMaterial color="#FEF3C7" roughness={0.6} flatShading />
-        </mesh>
-        <mesh position={[0.18, 0.45, -0.06]} rotation={[-0.2, 0, 0.2]}>
-          <cylinderGeometry args={[0.015, 0.022, 0.22, 4]} />
-          <meshStandardMaterial color="#FEF3C7" roughness={0.6} flatShading />
-        </mesh>
-      </group>
-
-      {/* Patas replegadas en reposo */}
-      <mesh position={[-0.32, 0.1, 0.28]} rotation={[0.1, 0, 0.2]}>
-        <boxGeometry args={[0.2, 0.22, 0.55]} />
-        <meshStandardMaterial color="#92400E" flatShading />
-      </mesh>
-      <mesh position={[0.32, 0.1, 0.28]} rotation={[0.1, 0, -0.2]}>
-        <boxGeometry args={[0.2, 0.22, 0.55]} />
-        <meshStandardMaterial color="#92400E" flatShading />
-      </mesh>
-      <mesh position={[-0.34, 0.08, -0.35]} rotation={[0, 0, 0.2]}>
-        <boxGeometry args={[0.22, 0.24, 0.65]} />
-        <meshStandardMaterial color="#92400E" flatShading />
-      </mesh>
-      <mesh position={[0.34, 0.08, -0.35]} rotation={[0, 0, -0.2]}>
-        <boxGeometry args={[0.22, 0.24, 0.65]} />
-        <meshStandardMaterial color="#92400E" flatShading />
-      </mesh>
-
-      {/* Manchas blancas leonadas sobre el lomo */}
-      {[
-        [-0.18, 0.57, 0.1],
-        [-0.12, 0.57, -0.2],
-        [-0.2, 0.57, -0.4],
-        [0.18, 0.57, 0.15],
-        [0.14, 0.57, -0.15],
-        [0.2, 0.57, -0.35],
-      ].map(([sx, sy, sz], idx) => (
-        <mesh key={idx} position={[sx, sy, sz]}>
-          <circleGeometry args={[0.045, 6]} />
-          <meshBasicMaterial color="#FEF3C7" />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/**
- * Flores Bioluminiscentes en Forma de Campana
- * Con tallo verde, capullo brillante y halo luminoso ambiental
+ * Flores Bioluminiscentes en Forma de Campana en el Borde del Pedestal
  */
 function BioluminescentFlora({ isDay }: { isDay: boolean }) {
   const flowerPoints: Array<[number, number, number, number]> = [
-    [-1.15, 0.28, 0.85, 0],
-    [-0.95, 0.28, -0.95, 1],
-    [1.15, 0.28, 0.75, 2],
-    [1.25, 0.28, -0.85, 3],
+    [-1.25, 0.28, 0.85, 0],
+    [-0.95, 0.28, -1.05, 1],
+    [1.25, 0.28, 0.75, 2],
+    [1.15, 0.28, -0.95, 3],
     [-1.35, 0.28, -0.15, 4],
-    [0.85, 0.28, 1.15, 5],
+    [0.85, 0.28, 1.25, 5],
   ];
 
   return (
     <group>
       {flowerPoints.map(([fx, fy, fz, id]) => (
         <group key={id} position={[fx, fy, fz]}>
-          {/* Tallo orgánico */}
-          <mesh position={[0, 0.2, 0]}>
-            <cylinderGeometry args={[0.02, 0.035, 0.42, 5]} />
+          <mesh position={[0, 0.18, 0]}>
+            <cylinderGeometry args={[0.02, 0.035, 0.36, 5]} />
             <meshStandardMaterial color="#059669" flatShading />
           </mesh>
 
-          {/* Campanilla bioluminiscente */}
-          <mesh position={[0, 0.44, 0]} rotation={[Math.PI, 0, 0]}>
-            <coneGeometry args={[0.13, 0.22, 6]} />
+          <mesh position={[0, 0.4, 0]} rotation={[Math.PI, 0, 0]}>
+            <coneGeometry args={[0.11, 0.2, 6]} />
             <meshStandardMaterial
               color={isDay ? "#FEF08A" : "#38BDF8"}
               emissive={isDay ? "#FACC15" : "#0284C7"}
-              emissiveIntensity={isDay ? 1.4 : 3.2}
+              emissiveIntensity={isDay ? 1.4 : 3.0}
             />
           </mesh>
 
-          {/* Luz puntual emitida por la flor */}
           <pointLight
             distance={1.6}
             intensity={isDay ? 0.3 : 1.2}
             color={isDay ? "#FDE047" : "#38BDF8"}
-            position={[0, 0.45, 0]}
+            position={[0, 0.42, 0]}
           />
         </group>
       ))}
@@ -208,8 +67,53 @@ function BioluminescentFlora({ isDay }: { isDay: boolean }) {
 }
 
 /**
- * Pedestal Giratorio Metálico con Anillo de Luz Neón
- * Como se muestra exactamente en el video
+ * Fauna 3D Realista Representativa para Cada Bioma
+ */
+function BiomeFaunaPresenter({ biomeIndex }: { biomeIndex: number }) {
+  switch (biomeIndex) {
+    case 0: // JUNGLE
+      return (
+        <group position={[0, 0.3, 0]}>
+          <WildlifeParrot position={[0, 0.65, 0]} rotation={[0, -0.6, 0]} scale={0.012} speed={1.2} />
+          <RealisticPlant position={[-0.8, 0.22, 0.4]} scale={1.2} />
+          <RealisticPlant position={[0.7, 0.22, -0.5]} scale={1.0} rotation={[0, 1.4, 0]} />
+        </group>
+      );
+    case 1: // AQUATIC
+      return (
+        <group position={[0, 0.25, 0]}>
+          <WildlifeFlamingo position={[-0.25, 0.25, 0.1]} rotation={[0, 0.5, 0]} scale={0.0045} speed={0.9} />
+          <WildlifeFish position={[0.5, 0.3, -0.2]} rotation={[0, Math.PI / 2, 0]} scale={1.6} swimSpeed={2.0} />
+          <RealisticPlant position={[0.75, 0.22, 0.5]} scale={0.9} />
+        </group>
+      );
+    case 2: // SAVANNA
+      return (
+        <group position={[0, 0.25, 0]}>
+          <WildlifeHorse position={[0, 0.25, 0]} rotation={[0, 0.4, 0]} scale={0.0036} speed={1.1} />
+          <RealisticPlant position={[-0.85, 0.22, -0.6]} scale={0.7} />
+        </group>
+      );
+    case 3: // DESERT
+      return (
+        <group position={[0, 0.25, 0]}>
+          <WildlifeFox position={[0, 0.25, 0]} rotation={[0, -0.5, 0]} scale={0.014} animation="Survey" speed={0.9} />
+        </group>
+      );
+    case 4: // FOREST
+    default:
+      return (
+        <group position={[0, 0.25, 0]}>
+          <WildlifeFox position={[0, 0.25, 0]} rotation={[0, 0.3, 0]} scale={0.015} animation="Survey" speed={1.0} />
+          <RealisticPlant position={[-0.8, 0.22, -0.5]} scale={1.1} rotation={[0, 2.0, 0]} />
+          <RealisticPlant position={[0.8, 0.22, 0.4]} scale={0.9} rotation={[0, -0.5, 0]} />
+        </group>
+      );
+  }
+}
+
+/**
+ * Pedestal Giratorio Metálico con Anillo de Luz Neón y Modelo Realista
  */
 function TurntableScene({
   isDay,
@@ -274,8 +178,10 @@ function TurntableScene({
         </mesh>
       ))}
 
-      {/* Ciervo descansando en el centro */}
-      <SculptedDeer isDay={isDay} />
+      {/* Fauna Realista Auténtica por Bioma */}
+      <Suspense fallback={null}>
+        <BiomeFaunaPresenter biomeIndex={biomeIndex} />
+      </Suspense>
 
       {/* Flores bioluminiscentes alrededor */}
       <BioluminescentFlora isDay={isDay} />
@@ -286,8 +192,8 @@ function TurntableScene({
 const BIOME_PRESETS = [
   {
     type: "JUNGLE",
-    name: "Selva Nocturna",
-    desc: "Ecosistema tropical de dosel denso y humedad constante",
+    name: "Selva Nocturna Tropical",
+    desc: "Ecosistema tropical de dosel denso y humedad constante con fauna aviar colorida.",
     specimens: "14 Especies",
     occupancy: "82% Ocupación",
     status: "ÓPTIMO",
@@ -296,7 +202,7 @@ const BIOME_PRESETS = [
   {
     type: "AQUATIC",
     name: "Humedal y Laguna",
-    desc: "Cuerpo de agua dulce con vegetación de ribera y nutrias",
+    desc: "Cuerpo de agua dulce con vegetación de ribera, flamencos y peces nativos.",
     specimens: "9 Especies",
     occupancy: "65% Ocupación",
     status: "ÓPTIMO",
@@ -305,7 +211,7 @@ const BIOME_PRESETS = [
   {
     type: "SAVANNA",
     name: "Sabana Abierta",
-    desc: "Pradera de acacias, termiteros y pastos dorados",
+    desc: "Pradera de pastos dorados y fauna corredora en llanura abierta.",
     specimens: "11 Especies",
     occupancy: "74% Ocupación",
     status: "ESTABLE",
@@ -314,7 +220,7 @@ const BIOME_PRESETS = [
   {
     type: "DESERT",
     name: "Cañón Desértico",
-    desc: "Ambiente árido con suculentas y refugios térmicos rocosos",
+    desc: "Ambiente árido con suculentas y refugios térmicos rocosos adaptados.",
     specimens: "5 Especies",
     occupancy: "45% Ocupación",
     status: "ÓPTIMO",
@@ -322,8 +228,8 @@ const BIOME_PRESETS = [
   },
   {
     type: "FOREST",
-    name: "Bosque Templado",
-    desc: "Bosque de pinos alpinos, líquenes y microclima fresco",
+    name: "Bosque Templado Andino",
+    desc: "Bosque de pinos alpinos, líquenes y mamíferos silvestres en libertad protegida.",
     specimens: "8 Especies",
     occupancy: "70% Ocupación",
     status: "ÓPTIMO",
@@ -362,7 +268,7 @@ export function BiomeInspectorModal({
           <div>
             <div className="text-xs uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5 mb-0.5">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Visor Holográfico de Hábitat</span>
+              <span>Visor Holográfico de Hábitat Realista</span>
             </div>
             <h2 className="text-lg font-black text-white">
               Vista del Bioma 3D — {currentBiome.name}
@@ -371,7 +277,7 @@ export function BiomeInspectorModal({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-emerald-800/60 text-emerald-300 hover:text-white transition-all"
+            className="p-2 rounded-full hover:bg-emerald-800/60 text-emerald-300 hover:text-white transition-all cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -404,7 +310,7 @@ export function BiomeInspectorModal({
           <Canvas
             shadows
             camera={{ position: [0, 1.8, 4.4], fov: 42 }}
-            gl={{ antialias: true, alpha: true }}
+            gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           >
             <ambientLight intensity={isDay ? 1.0 : 0.5} />
             <directionalLight
@@ -423,7 +329,7 @@ export function BiomeInspectorModal({
           {/* Flecha Izquierda */}
           <button
             onClick={handlePrev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 shadow-xl transition-all hover:scale-110"
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 shadow-xl transition-all hover:scale-110 cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -431,7 +337,7 @@ export function BiomeInspectorModal({
           {/* Flecha Derecha */}
           <button
             onClick={handleNext}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 shadow-xl transition-all hover:scale-110"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 shadow-xl transition-all hover:scale-110 cursor-pointer"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -440,7 +346,7 @@ export function BiomeInspectorModal({
           <div className="absolute bottom-3 inset-x-0 flex justify-center">
             <button
               onClick={() => setIsRotating(!isRotating)}
-              className="px-3.5 py-1.5 rounded-full backdrop-blur-md bg-black/60 border border-emerald-400/40 text-emerald-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 shadow-lg"
+              className="px-3.5 py-1.5 rounded-full backdrop-blur-md bg-black/60 border border-emerald-400/40 text-emerald-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 shadow-lg cursor-pointer"
             >
               <RotateCw
                 className={`w-3.5 h-3.5 ${isRotating ? "animate-spin" : ""}`}

@@ -1,10 +1,19 @@
 "use client";
 
-import React, { useRef, useMemo, useEffect } from "react";
+import React, { useRef, useMemo, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars } from "@react-three/drei";
 import * as THREE from "three";
 import { useNatureTheme } from "@/context/NatureThemeContext";
+import {
+  WildlifeFox,
+  WildlifeStork,
+  WildlifeParrot,
+  WildlifeFlamingo,
+  WildlifeHorse,
+  WildlifeDuck,
+  RealisticPlant,
+} from "./models";
 
 /**
  * Generador procedimental de textura lunar realista
@@ -697,49 +706,84 @@ function RiversideForest({ isDay }: { isDay: boolean }) {
 }
 
 /**
- * Bandada de Aves Silvestres Volando en Perspectiva
+ * Bandada de Aves Silvestres Realistas Volando con Aleteo Real en el Firmamento
+ * Sustituye polígonos sintéticos por modelos 3D GLTF auténticos con animación morphing
  */
-function FlyingBirds({ isDay }: { isDay: boolean }) {
-  const birdsGroupRef = useRef<THREE.Group>(null);
-  const wing1Ref = useRef<THREE.Mesh>(null);
-  const wing2Ref = useRef<THREE.Mesh>(null);
+function RealisticFlyingFlock() {
+  const flockRef = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    if (birdsGroupRef.current) {
-      birdsGroupRef.current.position.x = Math.sin(t * 0.3) * 6;
-      birdsGroupRef.current.position.y = 5.4 + Math.sin(t * 0.8) * 0.6;
-      birdsGroupRef.current.position.z = -10 + Math.cos(t * 0.3) * 3.5;
+    const t = clock.getElapsedTime() * 0.22;
+    if (flockRef.current) {
+      flockRef.current.position.x = Math.sin(t) * 9.5;
+      flockRef.current.position.y = 5.2 + Math.sin(t * 1.8) * 0.5;
+      flockRef.current.position.z = -9.0 + Math.cos(t) * 4.8;
+      flockRef.current.rotation.y = Math.cos(t) * 0.45 + Math.PI / 2;
     }
-
-    const flap = Math.sin(t * 8.5) * 0.55;
-    if (wing1Ref.current) wing1Ref.current.rotation.z = flap;
-    if (wing2Ref.current) wing2Ref.current.rotation.z = -flap;
   });
 
   return (
-    <group ref={birdsGroupRef} scale={[0.38, 0.38, 0.38]}>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.2, 0.85, 4]} />
-        <meshStandardMaterial
-          color={isDay ? "#FFFFFF" : "#CBD5E1"}
-          flatShading
-        />
-      </mesh>
-      <mesh ref={wing1Ref} position={[-0.45, 0.05, 0]}>
-        <boxGeometry args={[0.75, 0.04, 0.32]} />
-        <meshStandardMaterial
-          color={isDay ? "#F1F5F9" : "#94A3B8"}
-          flatShading
-        />
-      </mesh>
-      <mesh ref={wing2Ref} position={[0.45, 0.05, 0]}>
-        <boxGeometry args={[0.75, 0.04, 0.32]} />
-        <meshStandardMaterial
-          color={isDay ? "#F1F5F9" : "#94A3B8"}
-          flatShading
-        />
-      </mesh>
+    <group ref={flockRef}>
+      {/* Cigüeña Líder Realista */}
+      <WildlifeStork position={[0, 0, 0]} scale={0.0055} speed={1.1} />
+      {/* Cigüeña en Formación Izquierda */}
+      <WildlifeStork position={[-1.7, -0.25, -1.1]} scale={0.0048} speed={1.05} />
+      {/* Loro Tropical Guacamayo en Vuelo */}
+      <WildlifeParrot position={[1.4, 0.2, -0.7]} scale={0.0065} speed={1.3} />
+    </group>
+  );
+}
+
+/**
+ * Fauna y Flora 3D Auténtica Distribuida en el Santuario
+ * Zorro andino, caballo silvestre, flamencos, patos y vegetación hiperrealista
+ */
+function SanctuaryWildlife() {
+  return (
+    <group>
+      {/* Zorro en guardia (Survey) en la orilla del río */}
+      <WildlifeFox
+        position={[-2.8, -1.95, -2.4]}
+        rotation={[0, 0.85, 0]}
+        scale={0.0125}
+        animation="Survey"
+        speed={0.9}
+      />
+
+      {/* Caballo silvestre en trote lejano en la pradera derecha */}
+      <WildlifeHorse
+        position={[7.2, -1.35, -13.0]}
+        rotation={[0, -1.2, 0]}
+        scale={0.0032}
+        speed={1.0}
+      />
+
+      {/* Flamenco en la orilla del agua con aleteo vivo */}
+      <WildlifeFlamingo
+        position={[1.9, -1.95, -3.2]}
+        rotation={[0, -0.55, 0]}
+        scale={0.0032}
+        speed={0.85}
+      />
+
+      {/* Pato flotando serenamente en el espejo de agua */}
+      <WildlifeDuck
+        position={[-0.35, -1.94, -4.2]}
+        rotation={[0, 0.35, 0]}
+        scale={0.3}
+      />
+
+      {/* Plantas de follaje botánico realista junto a la ribera */}
+      <RealisticPlant
+        position={[-2.1, -1.86, -1.8]}
+        rotation={[0, 0.3, 0]}
+        scale={0.9}
+      />
+      <RealisticPlant
+        position={[2.3, -1.84, -4.0]}
+        rotation={[0, 1.2, 0]}
+        scale={1.1}
+      />
     </group>
   );
 }
@@ -880,7 +924,13 @@ export function LivingSanctuaryCanvas() {
         <RiverRocks isDay={isDay} />
         <RiverReeds isDay={isDay} />
         <RiversideForest isDay={isDay} />
-        <FlyingBirds isDay={isDay} />
+
+        {/* Fauna y Flora 3D Auténtica (Modelos GLTF Realistas Animados) */}
+        <Suspense fallback={null}>
+          <RealisticFlyingFlock />
+          <SanctuaryWildlife />
+        </Suspense>
+
         {!isDay && <Fireflies />}
         <CameraController />
       </Canvas>
