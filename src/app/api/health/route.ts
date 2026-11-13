@@ -5,12 +5,11 @@ import { Tenant } from "@/lib/db/entities/Tenant";
 export async function GET(_request: NextRequest) {
   try {
     const ds = await getDataSource();
-    const tenantRepository = ds.getRepository(Tenant);
-    const tenants = await tenantRepository.find({
-      order: {
-        created_at: "ASC",
-      },
-    });
+    const tenants = await ds.query(
+      `SELECT id, slug, name, schema_name, allow_network_collaboration, is_active, created_at, updated_at
+       FROM public.tenants
+       ORDER BY created_at ASC;`
+    );
 
     return NextResponse.json(
       {
