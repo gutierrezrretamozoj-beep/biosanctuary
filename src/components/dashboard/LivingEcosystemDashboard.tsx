@@ -173,7 +173,7 @@ export function LivingEcosystemDashboard({
   };
 
   return (
-    <div className={`relative w-full h-screen overflow-hidden font-sans select-none text-white ${isDay ? "bg-[#ECFDF5]" : "bg-[#03150d]"}`}>
+    <div className={`relative w-full h-screen overflow-hidden font-sans select-none text-white ${isDay ? "bg-sky-200" : "bg-[#03150d]"}`}>
       {/* 0. FONDO 3D A PANTALLA COMPLETA CON SOL, LUNA, RÍO, ÁRBOLES Y FAUNA */}
       <DynamicLivingSanctuary />
 

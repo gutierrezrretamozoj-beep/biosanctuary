@@ -16,8 +16,45 @@ import {
 } from "./models";
 
 /**
+ * Función canónica para la curvatura del río en función de Z
+ * z va de +4 (primer plano) a -24 (fondo del valle)
+ */
+export function getRiverCenterX(z: number): number {
+  return Math.sin((z + 8) * 0.16) * 1.65;
+}
+
+/**
+ * Función canónica para la altura del terreno
+ * Garantiza que la ribera SIEMPRE sea más alta que el agua (agua en y = -1.90)
+ */
+export function getTerrainHeight(x: number, z: number): number {
+  const centerX = getRiverCenterX(z);
+  const dist = Math.abs(x - centerX);
+  const riverHalfWidth = 1.75; // Ancho del cauce: 3.5m
+
+  // 1. Lecho del río bajo el agua (dist <= 1.75)
+  if (dist <= riverHalfWidth) {
+    const depthProfile = 1 - Math.pow(dist / riverHalfWidth, 2);
+    // Fondo a -2.65m en el centro, subiendo a -2.15m en el borde
+    return -2.65 - depthProfile * 0.25;
+  }
+
+  // 2. Ribera / Dique de contención (1.75 < dist <= 2.6)
+  // Sube decididamente por encima del nivel del agua (-1.90m) hasta -1.35m
+  if (dist < 2.6) {
+    const t = (dist - riverHalfWidth) / (2.6 - riverHalfWidth);
+    return -2.05 + t * 0.75; // Termina en -1.30m (0.60m SOBRE el agua)
+  }
+
+  // 3. Colinas laterales y laderas del bosque (dist >= 2.6)
+  const hillDist = dist - 2.6;
+  const baseHill = -1.30 + Math.pow(hillDist * 0.32, 1.25) * 1.5;
+  const gentleNoise = Math.sin(x * 0.2) * Math.cos(z * 0.18) * 0.35;
+  return Math.max(-1.30, baseHill + gentleNoise);
+}
+
+/**
  * Generador procedimental de textura lunar fotorrealista
- * Crea los mares lunares (maria), cráteres y gradientes de regolito
  */
 function createRealisticMoonTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
@@ -97,8 +134,8 @@ function createRealisticMoonTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Cúpula Celestial Panorámica (El Cielo en Modo Claro y Modo Oscuro)
- * Proyecta el degradado celeste diurno o nocturno en 360 grados
+ * 1. CÚPULA CELESTIAL PANORÁMICA (CIELO AZUL RADIANTE Y NOCHE PROFUNDA)
+ * 100% azul auténtico sin tonos verdes que apaguen el firmamento
  */
 function SanctuarySkyDome({ isDay }: { isDay: boolean }) {
   const skyTexture = useMemo(() => {
@@ -111,28 +148,28 @@ function SanctuarySkyDome({ isDay }: { isDay: boolean }) {
 
     const grad = ctx.createLinearGradient(0, 0, 0, 512);
     if (isDay) {
-      // Modo Claro: Desde celeste brillante cenital hasta verde menta luminoso en el horizonte
-      grad.addColorStop(0.0, "#38BDF8"); // Azul cielo cenital
-      grad.addColorStop(0.35, "#7DD3FC"); // Celeste diurno suave
-      grad.addColorStop(0.68, "#BAF7D0"); // Verde menta horizonte
-      grad.addColorStop(1.0, "#ECFDF5"); // Bruma luminosa del valle
+      // CIELO AZUL REAL RADIANTE
+      grad.addColorStop(0.0, "#1E40AF"); // Azul cenital intenso
+      grad.addColorStop(0.25, "#2563EB"); // Azul diurno puro
+      grad.addColorStop(0.55, "#38BDF8"); // Celeste luminoso
+      grad.addColorStop(0.80, "#7DD3FC"); // Azul cielo claro
+      grad.addColorStop(1.0, "#BAE6FD"); // Azul neblina horizonte
     } else {
-      // Modo Oscuro: Selva nocturna profunda
-      grad.addColorStop(0.0, "#010704"); // Negro cósmico
-      grad.addColorStop(0.40, "#03150E"); // Azul noche esmeralda
-      grad.addColorStop(0.75, "#062A1B"); // Selva profunda
-      grad.addColorStop(1.0, "#093B26"); // Horizonte nocturno
+      // Selva nocturna profunda
+      grad.addColorStop(0.0, "#020617"); // Negro azulado cósmico
+      grad.addColorStop(0.35, "#0B132B"); // Azul noche profundo
+      grad.addColorStop(0.70, "#0F172A"); // Índigo estelar
+      grad.addColorStop(1.0, "#041C14"); // Horizonte nocturno
     }
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const tex = new THREE.CanvasTexture(canvas);
-    return tex;
+    return new THREE.CanvasTexture(canvas);
   }, [isDay]);
 
   return (
     <mesh position={[0, 4, -18]}>
-      <sphereGeometry args={[42, 32, 24]} />
+      <sphereGeometry args={[46, 32, 24]} />
       <meshBasicMaterial
         map={skyTexture || undefined}
         side={THREE.BackSide}
@@ -143,13 +180,145 @@ function SanctuarySkyDome({ isDay }: { isDay: boolean }) {
 }
 
 /**
- * Siluetas de Montañas Lejanas en el Horizonte
+ * Nube Individual Puffy y Volumétrica
+ */
+function SingleCloud({
+  initialX,
+  y,
+  z,
+  scale,
+  speed,
+  isDay,
+}: {
+  initialX: number;
+  y: number;
+  z: number;
+  scale: number;
+  speed: number;
+  isDay: boolean;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const currentX = useRef(initialX);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    currentX.current += speed * delta;
+    if (currentX.current > 26) {
+      currentX.current = -26;
+    }
+    groupRef.current.position.x = currentX.current;
+  });
+
+  return (
+    <group
+      ref={groupRef}
+      position={[initialX, y, z]}
+      scale={[scale, scale * 0.6, scale * 0.75]}
+    >
+      {/* Centro principal esponjoso */}
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[1.3, 14, 12]} />
+        <meshStandardMaterial
+          color={isDay ? "#FFFFFF" : "#E2E8F0"}
+          emissive={isDay ? "#F8FAFC" : "#334155"}
+          emissiveIntensity={isDay ? 0.35 : 0.15}
+          roughness={0.95}
+          transparent
+          opacity={isDay ? 0.96 : 0.45}
+        />
+      </mesh>
+      {/* Lóbulo izquierdo */}
+      <mesh position={[-0.95, -0.15, 0.1]}>
+        <sphereGeometry args={[0.95, 12, 10]} />
+        <meshStandardMaterial
+          color={isDay ? "#FFFFFF" : "#E2E8F0"}
+          emissive={isDay ? "#F8FAFC" : "#334155"}
+          emissiveIntensity={isDay ? 0.35 : 0.15}
+          roughness={0.95}
+          transparent
+          opacity={isDay ? 0.95 : 0.45}
+        />
+      </mesh>
+      {/* Lóbulo derecho */}
+      <mesh position={[1.05, -0.1, -0.05]}>
+        <sphereGeometry args={[0.9, 12, 10]} />
+        <meshStandardMaterial
+          color={isDay ? "#FFFFFF" : "#E2E8F0"}
+          emissive={isDay ? "#F8FAFC" : "#334155"}
+          emissiveIntensity={isDay ? 0.35 : 0.15}
+          roughness={0.95}
+          transparent
+          opacity={isDay ? 0.95 : 0.45}
+        />
+      </mesh>
+      {/* Cúspide algodonosa */}
+      <mesh position={[0.2, 0.55, 0.15]}>
+        <sphereGeometry args={[0.8, 12, 10]} />
+        <meshStandardMaterial
+          color={isDay ? "#FFFFFF" : "#E2E8F0"}
+          emissive={isDay ? "#F8FAFC" : "#334155"}
+          emissiveIntensity={isDay ? 0.4 : 0.2}
+          roughness={0.95}
+          transparent
+          opacity={isDay ? 0.97 : 0.5}
+        />
+      </mesh>
+      {/* Base inferior suave */}
+      <mesh position={[-0.15, -0.35, 0]}>
+        <sphereGeometry args={[0.9, 12, 10]} />
+        <meshStandardMaterial
+          color={isDay ? "#F1F5F9" : "#94A3B8"}
+          emissive={isDay ? "#E2E8F0" : "#1E293B"}
+          emissiveIntensity={isDay ? 0.2 : 0.1}
+          roughness={0.95}
+          transparent
+          opacity={isDay ? 0.93 : 0.4}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Nubes Algodonosas Flotando en el Cielo Azul
+ */
+function FluffyClouds({ isDay }: { isDay: boolean }) {
+  const clouds = useMemo(
+    () => [
+      { x: -16, y: 6.4, z: -16, scale: 1.8, speed: 0.32 },
+      { x: -5, y: 7.2, z: -18, scale: 2.3, speed: 0.22 },
+      { x: 6, y: 6.1, z: -14, scale: 1.5, speed: 0.38 },
+      { x: 16, y: 6.8, z: -17, scale: 2.0, speed: 0.28 },
+      { x: -22, y: 5.6, z: -13, scale: 1.4, speed: 0.44 },
+      { x: 2, y: 7.8, z: -19, scale: 2.5, speed: 0.2 },
+    ],
+    []
+  );
+
+  return (
+    <group>
+      {clouds.map((c, i) => (
+        <SingleCloud
+          key={i}
+          initialX={c.x}
+          y={c.y}
+          z={c.z}
+          scale={c.scale}
+          speed={c.speed}
+          isDay={isDay}
+        />
+      ))}
+    </group>
+  );
+}
+
+/**
+ * Montañas en el Horizonte
  */
 function DistantMountains({ isDay }: { isDay: boolean }) {
   const mountainGeo = useMemo(() => {
     const geo = new THREE.BufferGeometry();
     const vertices: number[] = [];
-    // Cordillera de picos poligonales
     const peaks = [
       [-28, -2, -26], [-20, 4.5, -26], [-14, 0.5, -26],
       [-8, 5.2, -25], [-2, 1.8, -25], [4, 4.8, -25],
@@ -158,11 +327,10 @@ function DistantMountains({ isDay }: { isDay: boolean }) {
     for (let i = 0; i < peaks.length - 1; i++) {
       const p1 = peaks[i];
       const p2 = peaks[i + 1];
-      // Triángulo 1
       vertices.push(p1[0], -2.5, p1[2]);
       vertices.push(p1[0], p1[1], p1[2]);
       vertices.push(p2[0], p2[1], p2[2]);
-      // Triángulo 2
+
       vertices.push(p1[0], -2.5, p1[2]);
       vertices.push(p2[0], p2[1], p2[2]);
       vertices.push(p2[0], -2.5, p2[2]);
@@ -175,7 +343,7 @@ function DistantMountains({ isDay }: { isDay: boolean }) {
   return (
     <mesh geometry={mountainGeo} position={[0, 0, 0]}>
       <meshStandardMaterial
-        color={isDay ? "#6EE7B7" : "#064E3B"}
+        color={isDay ? "#0284C7" : "#064E3B"}
         roughness={0.95}
         flatShading
       />
@@ -184,8 +352,7 @@ function DistantMountains({ isDay }: { isDay: boolean }) {
 }
 
 /**
- * Arco Orbital Luminoso Calibrado en el Firmamento
- * Curva visible a la perfección justo debajo del header
+ * Arco Orbital Calibrado en el Firmamento
  */
 function OrbitalArc({ isDay }: { isDay: boolean }) {
   const arcCurve = useMemo(() => {
@@ -194,7 +361,6 @@ function OrbitalArc({ isDay }: { isDay: boolean }) {
     for (let i = 0; i <= 60; i++) {
       const theta = (i / 60) * Math.PI;
       const x = Math.cos(theta) * radius;
-      // Apex a y ≈ 6.5 para que quede 100% visible en el tercio superior de la pantalla
       const y = Math.sin(theta) * 6.6 - 0.2;
       const z = -14.0;
       points.push(new THREE.Vector3(x, y, z));
@@ -218,8 +384,7 @@ function OrbitalArc({ isDay }: { isDay: boolean }) {
 }
 
 /**
- * Sol Radiante (Modo Día) o Luna Fotorrealista (Modo Noche)
- * Posicionados y animados exactamente a la altura visible del video
+ * Sol Radiante (Día) o Luna Fotorrealista (Noche)
  */
 function CelestialOrb({ isDay }: { isDay: boolean }) {
   const orbGroupRef = useRef<THREE.Group>(null);
@@ -235,8 +400,9 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
     const t = clock.getElapsedTime() * 0.04;
     const radius = 16.5;
 
-    // Posición armónica en el firmamento
-    const angle = isDay ? ((t % (Math.PI * 0.7)) + Math.PI * 0.15) : (((t + Math.PI * 0.35) % (Math.PI * 0.7)) + Math.PI * 0.15);
+    const angle = isDay
+      ? ((t % (Math.PI * 0.7)) + Math.PI * 0.15)
+      : (((t + Math.PI * 0.35) % (Math.PI * 0.7)) + Math.PI * 0.15);
     const x = Math.cos(angle) * radius;
     const y = Math.sin(angle) * 6.6 - 0.2;
     const z = -14.0;
@@ -259,7 +425,6 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
     <group ref={orbGroupRef} position={[-2.0, 6.4, -14.0]}>
       {isDay ? (
         <>
-          {/* Núcleo Solar Radiante */}
           <mesh>
             <sphereGeometry args={[1.65, 32, 32]} />
             <meshStandardMaterial
@@ -269,8 +434,6 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
               roughness={0.1}
             />
           </mesh>
-
-          {/* Corona Solar Translúcida */}
           <mesh ref={sunCoronaRef}>
             <sphereGeometry args={[2.5, 32, 32]} />
             <meshBasicMaterial
@@ -280,8 +443,6 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
               side={THREE.BackSide}
             />
           </mesh>
-
-          {/* Halo Exterior Expandido */}
           <mesh>
             <sphereGeometry args={[3.8, 24, 24]} />
             <meshBasicMaterial
@@ -291,8 +452,6 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
               side={THREE.BackSide}
             />
           </mesh>
-
-          {/* Luz Solar Cálida Directa hacia el Valle y Río */}
           <directionalLight
             intensity={2.8}
             color="#FFFBEB"
@@ -302,7 +461,6 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
         </>
       ) : (
         <>
-          {/* Esfera Lunar con Textura Fotorrealista de Cráteres */}
           <mesh rotation={[0, 0.45, 0]}>
             <sphereGeometry args={[1.75, 48, 48]} />
             <meshStandardMaterial
@@ -314,8 +472,6 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
               metalness={0.05}
             />
           </mesh>
-
-          {/* Halo Lunar Azul Plateado */}
           <mesh>
             <sphereGeometry args={[2.6, 32, 32]} />
             <meshBasicMaterial
@@ -325,8 +481,6 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
               side={THREE.BackSide}
             />
           </mesh>
-
-          {/* Rayos Volumétricos de Luz Lunar hacia el Río */}
           <group ref={moonRaysRef}>
             {[0, 45, 90, 135].map((rot, idx) => (
               <mesh key={idx} rotation={[0, 0, (rot * Math.PI) / 180]}>
@@ -341,8 +495,6 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
               </mesh>
             ))}
           </group>
-
-          {/* Luz Lunar Fría hacia el Agua */}
           <directionalLight
             intensity={1.5}
             color="#BAE6FD"
@@ -356,27 +508,60 @@ function CelestialOrb({ isDay }: { isDay: boolean }) {
 }
 
 /**
- * Río Central Sinuoso con Agua Cristalina, Ondas Vivas y Destello Especular
+ * 2. EL AGUA CON LÍMITES ESTRICTOS (RÍO CONTENIDO SIN DESBORDAMIENTOS)
+ * La malla existe ÚNICAMENTE dentro del canal (-1.75 a +1.75 alrededor del centro)
  */
 function WindingRiver({ isDay }: { isDay: boolean }) {
   const riverMeshRef = useRef<THREE.Mesh>(null);
 
-  // Malla de alta resolución orientada horizontalmente
+  // Malla generada a medida a lo largo de la curva canónica del río
   const riverGeo = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(6.2, 38, 54, 90);
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const y = pos.getY(i);
-      // Curvatura elegante en S idéntica a frame_0000
-      const sCurve = Math.sin((y + 18) * 0.22) * 2.2;
-      pos.setX(i, pos.getX(i) + sCurve);
-      pos.setZ(i, 0);
+    const segmentsZ = 72;
+    const segmentsX = 14;
+    const minZ = 4.0;
+    const maxZ = -24.0;
+    const riverHalfWidth = 1.75; // Ancho total del agua = 3.5m
+
+    const geo = new THREE.BufferGeometry();
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+
+    for (let iz = 0; iz <= segmentsZ; iz++) {
+      const tz = iz / segmentsZ;
+      const z = THREE.MathUtils.lerp(minZ, maxZ, tz);
+      const centerX = getRiverCenterX(z);
+
+      for (let ix = 0; ix <= segmentsX; ix++) {
+        const tx = ix / segmentsX; // 0 a 1
+        const x = centerX + (tx * 2 - 1) * riverHalfWidth;
+        const y = -1.90; // Nivel del espejo de agua
+
+        positions.push(x, y, z);
+        uvs.push(tx, tz);
+      }
     }
+
+    for (let iz = 0; iz < segmentsZ; iz++) {
+      for (let ix = 0; ix < segmentsX; ix++) {
+        const a = iz * (segmentsX + 1) + ix;
+        const b = (iz + 1) * (segmentsX + 1) + ix;
+        const c = (iz + 1) * (segmentsX + 1) + (ix + 1);
+        const d = iz * (segmentsX + 1) + (ix + 1);
+
+        indices.push(a, b, d);
+        indices.push(b, c, d);
+      }
+    }
+
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
     geo.computeVertexNormals();
     return geo;
   }, []);
 
-  // Simulación dinámica de olas sobre la superficie
+  // Ondas dinámicas contenidas en el canal
   useFrame(({ clock }) => {
     if (!riverMeshRef.current) return;
     const t = clock.getElapsedTime();
@@ -384,83 +569,108 @@ function WindingRiver({ isDay }: { isDay: boolean }) {
 
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
-      const y = pos.getY(i);
+      const z = pos.getZ(i);
       const wave =
-        Math.sin(y * 1.4 + t * 2.0) * 0.038 +
-        Math.cos(x * 1.8 + t * 1.5) * 0.022;
-      pos.setZ(i, wave);
+        Math.sin(z * 1.6 + t * 2.2) * 0.024 +
+        Math.cos(x * 2.0 + t * 1.7) * 0.015;
+      pos.setY(i, -1.90 + wave);
     }
     pos.needsUpdate = true;
     riverMeshRef.current.geometry.computeVertexNormals();
   });
 
   return (
-    <group position={[0, -1.92, -6.5]} rotation={[-Math.PI / 2, 0, 0]}>
-      {/* Lecho arenoso debajo del agua */}
-      <mesh position={[0, 0, -0.15]}>
-        <planeGeometry args={[7.2, 38]} />
-        <meshStandardMaterial
-          color={isDay ? "#D97706" : "#451A03"}
-          roughness={0.95}
-        />
-      </mesh>
-
-      {/* Superficie Viva del Agua Cristalina */}
-      <mesh ref={riverMeshRef} geometry={riverGeo}>
-        <meshStandardMaterial
-          color={isDay ? "#38BDF8" : "#0284C7"}
-          emissive={isDay ? "#0284C7" : "#0C4A6E"}
-          emissiveIntensity={isDay ? 0.35 : 0.18}
-          roughness={0.06}
-          metalness={0.25}
-          transparent
-          opacity={0.92}
-        />
-      </mesh>
-    </group>
+    <mesh ref={riverMeshRef} geometry={riverGeo}>
+      <meshStandardMaterial
+        color={isDay ? "#38BDF8" : "#0284C7"}
+        emissive={isDay ? "#0284C7" : "#0C4A6E"}
+        emissiveIntensity={isDay ? 0.35 : 0.18}
+        roughness={0.06}
+        metalness={0.25}
+        transparent
+        opacity={0.92}
+      />
+    </mesh>
   );
 }
 
 /**
- * Ribera y Colinas Onduladas a Ambos Lados del Río (Estructura del Terreno)
+ * 3. TERRENO CON RIBERAS ELEVADAS Y LECHO DE CONTENCIÓN
+ * Las riberas suben a -1.30m (0.60m POR ENCIMA del agua a -1.90m), impidiendo todo desborde
  */
 function Riverbanks({ isDay }: { isDay: boolean }) {
   const terrainGeo = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(48, 38, 64, 64);
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      const riverCenter = Math.sin((y + 18) * 0.22) * 2.2;
-      const distToRiver = Math.abs(x - riverCenter);
+    const segmentsX = 64;
+    const segmentsZ = 64;
+    const minX = -22;
+    const maxX = 22;
+    const minZ = 4.0;
+    const maxZ = -24.0;
 
-      // Valle suave en el río y colinas progresivas a los lados
-      let height = 0;
-      if (distToRiver < 3.2) {
-        // Lecho del río debajo de la superficie del agua
-        height = -0.35;
-      } else {
-        // Pendiente suave que se eleva formando colinas
-        const hillSlope = Math.min((distToRiver - 3.2) / 3.5, 3.2);
-        height = Math.pow(hillSlope, 1.35) * 1.1;
-        // Ondulaciones orgánicas
-        height += Math.sin(x * 0.22) * Math.cos(y * 0.22) * 0.75;
+    const geo = new THREE.BufferGeometry();
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const indices: number[] = [];
+
+    const dayGrass = new THREE.Color("#16A34A");
+    const dayShore = new THREE.Color("#D97706");
+    const dayBed = new THREE.Color("#78350F");
+
+    const nightGrass = new THREE.Color("#065F46");
+    const nightShore = new THREE.Color("#451A03");
+    const nightBed = new THREE.Color("#1E293B");
+
+    const grassCol = isDay ? dayGrass : nightGrass;
+    const shoreCol = isDay ? dayShore : nightShore;
+    const bedCol = isDay ? dayBed : nightBed;
+
+    for (let iz = 0; iz <= segmentsZ; iz++) {
+      const tz = iz / segmentsZ;
+      const z = THREE.MathUtils.lerp(minZ, maxZ, tz);
+      const centerX = getRiverCenterX(z);
+
+      for (let ix = 0; ix <= segmentsX; ix++) {
+        const tx = ix / segmentsX;
+        const x = THREE.MathUtils.lerp(minX, maxX, tx);
+        const y = getTerrainHeight(x, z);
+
+        positions.push(x, y, z);
+
+        const dist = Math.abs(x - centerX);
+        let col = grassCol;
+        if (dist <= 1.75) {
+          col = bedCol;
+        } else if (dist < 2.6) {
+          const t = (dist - 1.75) / (2.6 - 1.75);
+          col = shoreCol.clone().lerp(grassCol, t);
+        }
+        colors.push(col.r, col.g, col.b);
       }
-      pos.setZ(i, height);
     }
+
+    for (let iz = 0; iz < segmentsZ; iz++) {
+      for (let ix = 0; ix < segmentsX; ix++) {
+        const a = iz * (segmentsX + 1) + ix;
+        const b = (iz + 1) * (segmentsX + 1) + ix;
+        const c = (iz + 1) * (segmentsX + 1) + (ix + 1);
+        const d = iz * (segmentsX + 1) + (ix + 1);
+
+        indices.push(a, b, d);
+        indices.push(b, c, d);
+      }
+    }
+
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
     geo.computeVertexNormals();
     return geo;
-  }, []);
+  }, [isDay]);
 
   return (
-    <mesh
-      geometry={terrainGeo}
-      position={[0, -2.0, -7]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      receiveShadow
-    >
+    <mesh geometry={terrainGeo} receiveShadow>
       <meshStandardMaterial
-        color={isDay ? "#22C55E" : "#064E3B"}
+        vertexColors
         roughness={0.88}
         metalness={0.04}
         flatShading
@@ -470,33 +680,52 @@ function Riverbanks({ isDay }: { isDay: boolean }) {
 }
 
 /**
- * Rocas y Cantos Rodados en la Ribera
+ * Cantos Rodados y Rocas Limítrofes a lo Largo de las Riberas
+ * Crean un margen físico nítido y natural que contiene el cauce
  */
-function RiverRocks({ isDay }: { isDay: boolean }) {
-  const rockList: Array<[number, number, number, number, number]> = [
-    [-2.3, -1.82, -1.4, 0.65, 0.3],
-    [2.2, -1.85, -2.4, 0.75, 0.8],
-    [-2.6, -1.78, -4.4, 0.85, 1.2],
-    [2.4, -1.82, -6.0, 0.7, 0.5],
-    [-1.8, -1.9, -7.5, 0.55, 1.5],
-    [2.7, -1.75, -9.5, 0.95, 2.1],
-    [-3.0, -1.68, -11.8, 1.05, 0.7],
-    [2.0, -1.85, -13.8, 0.75, 1.9],
-  ];
+function RiverBankStones({ isDay }: { isDay: boolean }) {
+  const stones = useMemo(() => {
+    const list: Array<{ x: number; y: number; z: number; s: number; r: number }> = [];
+    const zSteps = [3.0, 1.0, -1.5, -4.0, -6.5, -9.0, -12.0, -15.0, -18.0, -21.0];
+
+    zSteps.forEach((z, idx) => {
+      const c = getRiverCenterX(z);
+      // Piedra orilla izquierda (justo en el límite del agua)
+      const lx = c - 1.85 - ((idx * 5) % 3) * 0.1;
+      list.push({
+        x: lx,
+        y: getTerrainHeight(lx, z) + 0.12,
+        z,
+        s: 0.42 + ((idx * 3) % 4) * 0.12,
+        r: idx * 0.8,
+      });
+
+      // Piedra orilla derecha
+      const rx = c + 1.85 + ((idx * 7) % 3) * 0.1;
+      list.push({
+        x: rx,
+        y: getTerrainHeight(rx, z) + 0.12,
+        z: z + 0.6,
+        s: 0.46 + ((idx * 4) % 3) * 0.12,
+        r: idx * 1.3,
+      });
+    });
+    return list;
+  }, []);
 
   return (
     <group>
-      {rockList.map(([x, y, z, s, rot], idx) => (
+      {stones.map((st, i) => (
         <mesh
-          key={idx}
-          position={[x, y, z]}
-          rotation={[0, rot, 0]}
-          scale={[s, s * 0.65, s]}
+          key={i}
+          position={[st.x, st.y, st.z]}
+          rotation={[0, st.r, 0]}
+          scale={[st.s, st.s * 0.65, st.s]}
         >
-          <dodecahedronGeometry args={[1, 1]} />
+          <dodecahedronGeometry args={[1, 0]} />
           <meshStandardMaterial
             color={isDay ? "#64748B" : "#334155"}
-            roughness={0.92}
+            roughness={0.9}
             flatShading
           />
         </mesh>
@@ -506,19 +735,21 @@ function RiverRocks({ isDay }: { isDay: boolean }) {
 }
 
 /**
- * Juncos y Pastizales Silvestres en la Orilla
+ * Juncos y Pastizales Silvestres en la Ribera
  */
 function RiverReeds({ isDay }: { isDay: boolean }) {
-  const reedCoords: Array<[number, number, number]> = [
-    [-1.6, -1.75, -1.8],
-    [-1.8, -1.75, -2.1],
-    [1.7, -1.8, -2.8],
-    [1.8, -1.8, -3.1],
-    [-2.2, -1.75, -5.4],
-    [1.9, -1.8, -7.0],
-    [-1.6, -1.85, -8.5],
-    [2.1, -1.75, -10.6],
-  ];
+  const reedCoords = useMemo(() => {
+    const list: Array<[number, number, number]> = [];
+    const zSteps = [2.0, -0.5, -3.5, -7.0, -11.0, -14.5];
+    zSteps.forEach((z) => {
+      const c = getRiverCenterX(z);
+      const lx = c - 2.05;
+      const rx = c + 2.05;
+      list.push([lx, getTerrainHeight(lx, z), z]);
+      list.push([rx, getTerrainHeight(rx, z), z + 0.4]);
+    });
+    return list;
+  }, []);
 
   return (
     <group>
@@ -542,9 +773,10 @@ function RiverReeds({ isDay }: { isDay: boolean }) {
 }
 
 /**
- * Árbol Caducifolio Exuberante con Copas Orgánicas en Múltiples Esferas
+ * 4. PINO ALPINO DE SILUETA LIMPIA Y DEFINIDA (SIN ENREDOS)
+ * 4 capas cónicas elegantes y tronco visible
  */
-function DeciduousTree({
+function DefinedPineTree({
   position,
   scale = 1,
   isDay,
@@ -557,7 +789,7 @@ function DeciduousTree({
 
   useFrame(({ clock }) => {
     if (treeRef.current) {
-      const sway = Math.sin(clock.getElapsedTime() * 1.2 + position[0]) * 0.03;
+      const sway = Math.sin(clock.getElapsedTime() * 1.1 + position[0]) * 0.02;
       treeRef.current.rotation.z = sway;
     }
   });
@@ -565,41 +797,44 @@ function DeciduousTree({
   return (
     <group ref={treeRef} position={position} scale={[scale, scale, scale]}>
       {/* Tronco */}
-      <mesh position={[0, 1.2, 0]}>
-        <cylinderGeometry args={[0.2, 0.35, 2.4, 7]} />
-        <meshStandardMaterial color="#5C2C16" roughness={0.92} />
+      <mesh position={[0, 0.8, 0]}>
+        <cylinderGeometry args={[0.16, 0.26, 1.6, 8]} />
+        <meshStandardMaterial color="#451A03" roughness={0.9} />
       </mesh>
 
-      {/* Clústeres de follaje esférico en verde vivo */}
-      <mesh position={[0, 2.8, 0]}>
-        <dodecahedronGeometry args={[1.45, 1]} />
+      {/* Capa 1 (Base) */}
+      <mesh position={[0, 1.7, 0]}>
+        <coneGeometry args={[1.3, 1.5, 8]} />
         <meshStandardMaterial
-          color={isDay ? "#16A34A" : "#047857"}
-          roughness={0.78}
+          color={isDay ? "#14532D" : "#022C22"}
+          roughness={0.7}
           flatShading
         />
       </mesh>
-      <mesh position={[-0.8, 2.5, 0.4]}>
-        <dodecahedronGeometry args={[0.95, 1]} />
+      {/* Capa 2 */}
+      <mesh position={[0, 2.65, 0]}>
+        <coneGeometry args={[1.05, 1.35, 8]} />
         <meshStandardMaterial
-          color={isDay ? "#22C55E" : "#065F46"}
-          roughness={0.78}
+          color={isDay ? "#166534" : "#064E3B"}
+          roughness={0.7}
           flatShading
         />
       </mesh>
-      <mesh position={[0.75, 2.6, -0.35]}>
-        <dodecahedronGeometry args={[1.05, 1]} />
+      {/* Capa 3 */}
+      <mesh position={[0, 3.5, 0]}>
+        <coneGeometry args={[0.78, 1.15, 8]} />
         <meshStandardMaterial
-          color={isDay ? "#15803D" : "#022C22"}
-          roughness={0.78}
+          color={isDay ? "#15803D" : "#047857"}
+          roughness={0.7}
           flatShading
         />
       </mesh>
-      <mesh position={[0, 3.4, 0.2]}>
-        <dodecahedronGeometry args={[0.85, 1]} />
+      {/* Capa 4 (Cúspide) */}
+      <mesh position={[0, 4.25, 0]}>
+        <coneGeometry args={[0.48, 0.9, 8]} />
         <meshStandardMaterial
-          color={isDay ? "#4ADE80" : "#10B981"}
-          roughness={0.75}
+          color={isDay ? "#22C55E" : "#10B981"}
+          roughness={0.7}
           flatShading
         />
       </mesh>
@@ -608,9 +843,9 @@ function DeciduousTree({
 }
 
 /**
- * Pino Alpino en Capas Cónicas de Verde Profundo
+ * 5. ÁRBOL FRONDOSO ESTILIZADO DE COPA LIMPIA Y REDONDEADA
  */
-function PineTree({
+function DefinedBroadleafTree({
   position,
   scale = 1,
   isDay,
@@ -619,44 +854,105 @@ function PineTree({
   scale?: number;
   isDay: boolean;
 }) {
-  const pineRef = useRef<THREE.Group>(null);
+  const treeRef = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
-    if (pineRef.current) {
-      const sway = Math.sin(clock.getElapsedTime() * 1.4 + position[0]) * 0.035;
-      pineRef.current.rotation.z = sway;
+    if (treeRef.current) {
+      const sway = Math.sin(clock.getElapsedTime() * 0.95 + position[0]) * 0.02;
+      treeRef.current.rotation.z = sway;
     }
   });
 
   return (
-    <group ref={pineRef} position={position} scale={[scale, scale, scale]}>
-      {/* Tronco */}
-      <mesh position={[0, 0.75, 0]}>
-        <cylinderGeometry args={[0.15, 0.24, 1.5, 6]} />
-        <meshStandardMaterial color="#451A03" roughness={0.92} />
+    <group ref={treeRef} position={position} scale={[scale, scale, scale]}>
+      {/* Tronco principal */}
+      <mesh position={[0, 1.0, 0]}>
+        <cylinderGeometry args={[0.2, 0.34, 2.0, 8]} />
+        <meshStandardMaterial color="#5C2C16" roughness={0.92} />
+      </mesh>
+      {/* Rama lateral izquierda */}
+      <mesh position={[-0.35, 1.8, 0.1]} rotation={[0, 0, -0.45]}>
+        <cylinderGeometry args={[0.1, 0.15, 0.9, 6]} />
+        <meshStandardMaterial color="#5C2C16" roughness={0.92} />
+      </mesh>
+      {/* Rama lateral derecha */}
+      <mesh position={[0.35, 1.9, -0.1]} rotation={[0, 0, 0.4]}>
+        <cylinderGeometry args={[0.1, 0.15, 0.85, 6]} />
+        <meshStandardMaterial color="#5C2C16" roughness={0.92} />
       </mesh>
 
-      {/* Capas cónicas de follaje */}
-      <mesh position={[0, 1.8, 0]}>
-        <coneGeometry args={[1.2, 1.6, 7]} />
+      {/* Clústeres de follaje esférico suave */}
+      <mesh position={[0, 2.85, 0]}>
+        <sphereGeometry args={[1.25, 12, 10]} />
         <meshStandardMaterial
-          color={isDay ? "#15803D" : "#047857"}
-          roughness={0.82}
+          color={isDay ? "#15803D" : "#065F46"}
+          roughness={0.75}
           flatShading
         />
       </mesh>
-      <mesh position={[0, 2.8, 0]}>
-        <coneGeometry args={[0.92, 1.4, 7]} />
+      <mesh position={[-0.75, 2.5, 0.2]}>
+        <sphereGeometry args={[0.9, 10, 8]} />
         <meshStandardMaterial
-          color={isDay ? "#16A34A" : "#065F46"}
-          roughness={0.82}
+          color={isDay ? "#16A34A" : "#047857"}
+          roughness={0.75}
           flatShading
         />
       </mesh>
-      <mesh position={[0, 3.7, 0]}>
-        <coneGeometry args={[0.6, 1.1, 7]} />
+      <mesh position={[0.75, 2.55, -0.2]}>
+        <sphereGeometry args={[0.85, 10, 8]} />
         <meshStandardMaterial
-          color={isDay ? "#22C55E" : "#10B981"}
+          color={isDay ? "#22C55E" : "#059669"}
+          roughness={0.75}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[0.1, 3.5, 0.1]}>
+        <sphereGeometry args={[0.7, 10, 8]} />
+        <meshStandardMaterial
+          color={isDay ? "#4ADE80" : "#10B981"}
+          roughness={0.72}
+          flatShading
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Árbol Centinela con Rama Sobresaliente hacia el Río
+ */
+function HeroOverhangingTree({
+  position,
+  isDay,
+}: {
+  position: [number, number, number];
+  isDay: boolean;
+}) {
+  return (
+    <group position={position}>
+      {/* Tronco robusto */}
+      <mesh position={[0, 1.2, 0]}>
+        <cylinderGeometry args={[0.26, 0.42, 2.4, 8]} />
+        <meshStandardMaterial color="#5C2C16" roughness={0.92} />
+      </mesh>
+      {/* Rama horizontal larga que se extiende sobre la orilla izquierda */}
+      <mesh position={[0.65, 1.9, 0.15]} rotation={[0, 0, -1.15]}>
+        <cylinderGeometry args={[0.14, 0.22, 1.7, 7]} />
+        <meshStandardMaterial color="#5C2C16" roughness={0.92} />
+      </mesh>
+      {/* Copa del árbol */}
+      <mesh position={[0, 3.0, 0]}>
+        <sphereGeometry args={[1.4, 12, 10]} />
+        <meshStandardMaterial
+          color={isDay ? "#16A34A" : "#047857"}
+          roughness={0.75}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[-0.6, 2.7, 0.3]}>
+        <sphereGeometry args={[0.95, 10, 8]} />
+        <meshStandardMaterial
+          color={isDay ? "#22C55E" : "#065F46"}
           roughness={0.75}
           flatShading
         />
@@ -666,8 +962,7 @@ function PineTree({
 }
 
 /**
- * Búho Posado con Ojos Luminosos y Giro Realista de Cabeza
- * Reproduce exactamente el búho de frame_0000 sobre la rama izquierda
+ * Búho Guardián Posado con Giro de Cabeza y Ojos Dorados
  */
 function PerchedOwl({
   position,
@@ -718,7 +1013,7 @@ function PerchedOwl({
           <meshStandardMaterial color="#78350F" flatShading />
         </mesh>
 
-        {/* Ojos dorados/amarillos radiantes */}
+        {/* Ojos dorados radiantes */}
         <mesh position={[-0.15, 0.05, 0.36]}>
           <circleGeometry args={[0.11, 10]} />
           <meshBasicMaterial color={isDay ? "#FEF08A" : "#FDE047"} />
@@ -747,37 +1042,93 @@ function PerchedOwl({
 }
 
 /**
- * Bosque Completo a Ambos Lados de la Ribera con Mayor Forma, Densidad y Perspectiva
+ * 6. BOSQUE ESTRUCTURADO Y DEFINIDO A AMBOS LADOS DEL RÍO
+ * Distribución ordenada sobre las laderas con anclaje al suelo y valle despejado
  */
 function RiversideForest({ isDay }: { isDay: boolean }) {
+  const leftTrees = useMemo(
+    () => [
+      { x: -5.0, z: -5.5, s: 1.15, type: "pine" },
+      { x: -6.5, z: -7.6, s: 1.3, type: "broadleaf" },
+      { x: -4.8, z: -10.0, s: 1.25, type: "pine" },
+      { x: -7.2, z: -12.4, s: 1.45, type: "broadleaf" },
+      { x: -5.6, z: -15.0, s: 1.4, type: "pine" },
+      { x: -8.2, z: -17.8, s: 1.65, type: "pine" },
+    ],
+    []
+  );
+
+  const rightTrees = useMemo(
+    () => [
+      { x: 4.6, z: -3.8, s: 1.1, type: "broadleaf" },
+      { x: 5.8, z: -6.2, s: 1.2, type: "pine" },
+      { x: 4.8, z: -8.8, s: 1.25, type: "broadleaf" },
+      { x: 6.6, z: -11.5, s: 1.4, type: "pine" },
+      { x: 5.4, z: -14.2, s: 1.35, type: "broadleaf" },
+      { x: 7.8, z: -17.0, s: 1.6, type: "pine" },
+    ],
+    []
+  );
+
+  const heroX = -3.8;
+  const heroZ = -3.2;
+  const heroY = getTerrainHeight(heroX, heroZ);
+
   return (
     <group>
-      {/* Ribera izquierda - Primer plano con rama saliente y el Búho emblemático */}
-      <DeciduousTree position={[-3.6, -1.9, -3.2]} scale={1.25} isDay={isDay} />
-      <PerchedOwl position={[-3.0, 0.25, -3.0]} isDay={isDay} scale={0.42} />
+      {/* Árbol centinela en primer plano con el búho */}
+      <HeroOverhangingTree position={[heroX, heroY, heroZ]} isDay={isDay} />
+      <PerchedOwl
+        position={[heroX + 1.15, heroY + 2.35, heroZ + 0.15]}
+        isDay={isDay}
+        scale={0.42}
+      />
 
-      {/* Ribera izquierda - Bosque denso en capas ascendentes */}
-      <PineTree position={[-4.5, -1.8, -4.8]} scale={1.1} isDay={isDay} />
-      <DeciduousTree position={[-5.8, -1.6, -6.5]} scale={1.35} isDay={isDay} />
-      <PineTree position={[-4.2, -1.75, -8.2]} scale={1.2} isDay={isDay} />
-      <DeciduousTree position={[-6.8, -1.5, -10.5]} scale={1.45} isDay={isDay} />
-      <PineTree position={[-5.2, -1.6, -12.8]} scale={1.35} isDay={isDay} />
-      <PineTree position={[-7.5, -1.4, -15.5]} scale={1.65} isDay={isDay} />
+      {/* Ladera izquierda */}
+      {leftTrees.map((t, i) => {
+        const y = getTerrainHeight(t.x, t.z);
+        return t.type === "pine" ? (
+          <DefinedPineTree
+            key={`l-${i}`}
+            position={[t.x, y, t.z]}
+            scale={t.s}
+            isDay={isDay}
+          />
+        ) : (
+          <DefinedBroadleafTree
+            key={`l-${i}`}
+            position={[t.x, y, t.z]}
+            scale={t.s}
+            isDay={isDay}
+          />
+        );
+      })}
 
-      {/* Ribera derecha - Enmarque del valle */}
-      <DeciduousTree position={[4.6, -1.85, -3.6]} scale={1.2} isDay={isDay} />
-      <PineTree position={[3.8, -1.85, -5.2]} scale={1.05} isDay={isDay} />
-      <DeciduousTree position={[6.2, -1.65, -7.0]} scale={1.3} isDay={isDay} />
-      <PineTree position={[4.5, -1.75, -9.0]} scale={1.25} isDay={isDay} />
-      <DeciduousTree position={[7.0, -1.5, -11.5]} scale={1.45} isDay={isDay} />
-      <PineTree position={[5.2, -1.6, -13.5]} scale={1.35} isDay={isDay} />
-      <PineTree position={[7.8, -1.4, -16.0]} scale={1.65} isDay={isDay} />
+      {/* Ladera derecha */}
+      {rightTrees.map((t, i) => {
+        const y = getTerrainHeight(t.x, t.z);
+        return t.type === "pine" ? (
+          <DefinedPineTree
+            key={`r-${i}`}
+            position={[t.x, y, t.z]}
+            scale={t.s}
+            isDay={isDay}
+          />
+        ) : (
+          <DefinedBroadleafTree
+            key={`r-${i}`}
+            position={[t.x, y, t.z]}
+            scale={t.s}
+            isDay={isDay}
+          />
+        );
+      })}
     </group>
   );
 }
 
 /**
- * Bandada de Aves Silvestres Volando en el Firmamento
+ * Bandada de Aves Silvestres en el Cielo
  */
 function RealisticFlyingFlock() {
   const flockRef = useRef<THREE.Group>(null);
@@ -802,51 +1153,65 @@ function RealisticFlyingFlock() {
 }
 
 /**
- * Fauna y Flora 3D Auténtica Distribuida en el Santuario
+ * Fauna y Flora 3D Auténtica
  */
 function SanctuaryWildlife() {
+  const foxX = -2.6;
+  const foxZ = -2.4;
+  const foxY = getTerrainHeight(foxX, foxZ);
+
+  const horseX = 7.0;
+  const horseZ = -13.0;
+  const horseY = getTerrainHeight(horseX, horseZ);
+
+  const duckX = -0.25;
+  const duckZ = -4.2;
+
+  const flamingoX = 1.35;
+  const flamingoZ = -3.2;
+
   return (
     <group>
-      {/* Zorro en guardia en la orilla del río */}
+      {/* Zorro en guardia sobre la orilla izquierda */}
       <WildlifeFox
-        position={[-2.8, -1.95, -2.4]}
+        position={[foxX, foxY, foxZ]}
         rotation={[0, 0.85, 0]}
         scale={0.0125}
         animation="Survey"
         speed={0.9}
       />
 
-      {/* Caballo silvestre en la colina lejana derecha */}
+      {/* Caballo silvestre en la colina derecha */}
       <WildlifeHorse
-        position={[7.2, -1.35, -13.0]}
+        position={[horseX, horseY, horseZ]}
         rotation={[0, -1.2, 0]}
         scale={0.0032}
         speed={1.0}
       />
 
-      {/* Flamenco en la orilla del agua */}
+      {/* Flamenco en la ribera del agua */}
       <WildlifeFlamingo
-        position={[1.9, -1.95, -3.2]}
+        position={[flamingoX, -1.90, flamingoZ]}
         rotation={[0, -0.55, 0]}
         scale={0.0032}
         speed={0.85}
       />
 
-      {/* Pato flotando en el agua */}
+      {/* Pato navegando en el agua */}
       <WildlifeDuck
-        position={[-0.35, -1.94, -4.2]}
+        position={[duckX, -1.90, duckZ]}
         rotation={[0, 0.35, 0]}
         scale={0.3}
       />
 
-      {/* Plantas botánicas junto a la ribera */}
+      {/* Plantas botánicas en la orilla */}
       <RealisticPlant
-        position={[-2.1, -1.86, -1.8]}
+        position={[-2.1, getTerrainHeight(-2.1, -1.8), -1.8]}
         rotation={[0, 0.3, 0]}
         scale={0.9}
       />
       <RealisticPlant
-        position={[2.3, -1.84, -4.0]}
+        position={[2.2, getTerrainHeight(2.2, -4.0), -4.0]}
         rotation={[0, 1.2, 0]}
         scale={1.1}
       />
@@ -855,7 +1220,7 @@ function SanctuaryWildlife() {
 }
 
 /**
- * Luciérnagas Bioluminiscentes Vivas (Modo Noche)
+ * Luciérnagas en Modo Noche
  */
 function Fireflies() {
   const pointsRef = useRef<THREE.Points>(null);
@@ -960,19 +1325,19 @@ export function LivingSanctuaryCanvas() {
         camera={{ position: [0, 2.2, 5.8], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       >
-        {/* Color de fondo del Canvas */}
-        <color attach="background" args={[isDay ? "#ECFDF5" : "#020B07"]} />
+        {/* Color de fondo del Canvas: Azul cielo luminoso de día / Noche cósmica */}
+        <color attach="background" args={[isDay ? "#38BDF8" : "#020617"]} />
 
         {/* Iluminación Ambiental */}
         <ambientLight
-          intensity={isDay ? 1.25 : 0.45}
-          color={isDay ? "#ECFDF5" : "#064E3B"}
+          intensity={isDay ? 1.35 : 0.45}
+          color={isDay ? "#BAE6FD" : "#064E3B"}
         />
 
-        {/* Niebla Atmosférica Suave */}
+        {/* Niebla Atmosférica Azul Suave */}
         <fog
           attach="fog"
-          args={[isDay ? "#BAF7D0" : "#020B07", 12, 42]}
+          args={[isDay ? "#7DD3FC" : "#020617", 18, 55]}
         />
 
         {/* Estrellas en Modo Oscuro */}
@@ -988,26 +1353,31 @@ export function LivingSanctuaryCanvas() {
           />
         )}
 
-        {/* 1. EL CIELO (Cúpula Celestial en degradado) */}
+        {/* 1. EL CIELO (Cúpula Celestial en Azul Puro) */}
         <SanctuarySkyDome isDay={isDay} />
+
+        {/* Nubes Esponjosas en el Cielo */}
+        <FluffyClouds isDay={isDay} />
 
         {/* Montañas en el horizonte */}
         <DistantMountains isDay={isDay} />
 
-        {/* 2. EL SOL EN MODO CLARO / LA LUNA EN MODO OSCURO CON ARCO ORBITAL */}
+        {/* 2. EL SOL EN MODO CLARO / LA LUNA EN MODO OSCURO */}
         <OrbitalArc isDay={isDay} />
         <CelestialOrb isDay={isDay} />
 
-        {/* 3. EL AGUA (Río central sinuoso con reflejos y ondas vivas) */}
+        {/* 3. EL AGUA (Río con límites físicos estrictos dentro de su cauce) */}
         <WindingRiver isDay={isDay} />
 
-        {/* 4. FORMA DEL BOSQUE (Colinas, árboles densos, búho, rocas y juncos) */}
+        {/* 4. TERRENO Y BORDES DE CONTENCIÓN */}
         <Riverbanks isDay={isDay} />
-        <RiverRocks isDay={isDay} />
+        <RiverBankStones isDay={isDay} />
         <RiverReeds isDay={isDay} />
+
+        {/* 5. BOSQUE ESTRUCTURADO Y DEFINIDO (Siluetas limpias, sin enredos) */}
         <RiversideForest isDay={isDay} />
 
-        {/* Fauna y Flora 3D Auténtica (Modelos GLTF Realistas) */}
+        {/* 6. FAUNA Y FLORA 3D AUTÉNTICA */}
         <Suspense fallback={null}>
           <RealisticFlyingFlock />
           <SanctuaryWildlife />
