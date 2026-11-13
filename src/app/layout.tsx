@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { NatureThemeProvider } from "@/context/NatureThemeContext";
 
 export const metadata: Metadata = {
-  title: "BioSanctuary OS",
-  description: "Plataforma de gestión para refugios y santuarios de fauna silvestre",
+  title: "BioSanctuary OS - Naturaleza Viva y Gestión de Fauna Silvestre",
+  description:
+    "SaaS Multitenant para Reservas y Santuarios de Fauna Silvestre con arquitectura aislada por schema e inmersión 3D viva.",
 };
 
 export default function RootLayout({
@@ -12,8 +14,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className="h-full antialiased">
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+    <html lang="es" className="h-full antialiased scroll-smooth">
+      <body className="min-h-full flex flex-col font-sans">
+        <NatureThemeProvider>{children}</NatureThemeProvider>
+      </body>
     </html>
   );
 }
